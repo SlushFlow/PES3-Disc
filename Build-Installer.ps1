@@ -17,9 +17,9 @@ Write-Host ''
 Write-Host 'Step 2/2: Compiling installer...'
 
 $iscc = @(
+    (Get-Command iscc -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source),
     "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-    "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
-    (Get-Command iscc -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
+    "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
 ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
 
 if (-not $iscc) {
@@ -57,10 +57,14 @@ $isccArgs = @(
     "/DMyAppVersion=$appVersion",
     "/O$outDir",
     "/Log=$logPath",
-    '/Qp',
     (Split-Path -Leaf $iss)
 )
+if (-not $env:GITHUB_ACTIONS) {
+    $isccArgs = @('/Qp') + $isccArgs
+}
 
+Write-Host 'dist contents:'
+Get-ChildItem -LiteralPath $distDir | ForEach-Object { Write-Host "  $($_.Name)" }
 Write-Host "ISCC: $iscc $($isccArgs -join ' ')"
 Push-Location $installerDir
 try {
@@ -82,9 +86,13 @@ finally {
 if ($LASTEXITCODE -ne 0) {
     if (Test-Path -LiteralPath $logPath) {
         Write-Host '--- ISCC log ---' -ForegroundColor Red
-        Get-Content -LiteralPath $logPath | Write-Host
+        $logText = Get-Content -LiteralPath $logPath -Raw
+        Write-Host $logText
+        if ($env:GITHUB_ACTIONS -eq 'true') {
+            "ISCC_LOG<<EOF`n$logText`nEOF" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+        }
     }
-    throw 'Inno Setup compile failed.'
+    throw "Inno Setup compile failed (exit $LASTEXITCODE). See iscc.log above."
 }
 
 $setup = Get-ChildItem -LiteralPath $outDir -Filter 'PES3-Disc-Setup*.exe' | Select-Object -First 1

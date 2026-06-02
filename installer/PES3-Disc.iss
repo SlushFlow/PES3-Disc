@@ -74,19 +74,19 @@ begin
   end;
 end;
 
-function InstallRuntime(const InstallerPath, Label: string): string;
+function InstallRuntime(const InstallerPath, RuntimeName: string): string;
 var
   ResultCode: Integer;
 begin
   Result := '';
-  WizardForm.StatusLabel.Caption := 'Installing ' + Label + '...';
+  WizardForm.StatusLabel.Caption := 'Installing ' + RuntimeName + '...';
   if not Exec(InstallerPath, '/install /quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
-    Result := 'Could not run ' + Label + ' installer.';
+    Result := 'Could not run ' + RuntimeName + ' installer.';
     Exit;
   end;
   if not DotNetInstallOk(ResultCode) then
-    Result := Label + ' setup failed (exit code ' + IntToStr(ResultCode) + ').';
+    Result := RuntimeName + ' setup failed (exit code ' + IntToStr(ResultCode) + ').';
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): string;
