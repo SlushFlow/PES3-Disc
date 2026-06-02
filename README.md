@@ -23,10 +23,19 @@ When you insert a PS3 game disc (or a burned disc with the standard PS3 folder l
 
 | Disc type | PES3-Disc |
 |-----------|-----------|
-| **DIY / burned / mounted** disc with `PS3_GAME\USRDIR\EBOOT.BIN` (decrypted) | **Works** |
-| **Retail PS3 Blu-ray** in a normal PC drive | **Does not work** — Windows usually sees an empty/non-game volume; RPCS3 cannot decrypt live discs |
+| **DIY / burned / mounted** disc with decrypted `EBOOT.BIN` | **Works** — prompt and launch RPCS3 |
+| **Retail / official PS3 Blu-ray** | **Decrypt then play** — built-in retail decryptor (`pes3-disc-dump`) |
 
-Full details: [docs/DISC-COMPATIBILITY.md](docs/DISC-COMPATIBILITY.md)
+For official discs, run **one-time** setup:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Setup-RetailDecrypt.ps1
+```
+
+Then insert the disc → confirm **Decrypt and play**. Requires a [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives) and IRD keys (same as PS3 Disc Dumper).
+
+- DIY / layout details: [docs/DISC-COMPATIBILITY.md](docs/DISC-COMPATIBILITY.md)  
+- Retail decrypt: [docs/RETAIL-DECRYPT.md](docs/RETAIL-DECRYPT.md)
 
 Run layout tests anytime:
 

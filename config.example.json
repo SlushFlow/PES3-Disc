@@ -1,5 +1,9 @@
 {
   "Rpcs3Path": "C:\\Path\\To\\RPCS3\\rpcs3.exe",
   "ScanDelaySeconds": 3,
-  "UseNoGui": false
+  "UseNoGui": false,
+  "EnableRetailDecrypt": true,
+  "DecryptUnknownOpticalMedia": false,
+  "DumpCachePath": "C:\\Users\\YourName\\AppData\\Local\\PES3-Disc\\cache",
+  "DumpCliPath": ""
 }

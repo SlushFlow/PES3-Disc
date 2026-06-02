@@ -2,3 +2,12 @@ config.json
 prompted-volumes.json
 disc-run.log
 pes3-disc.log
+
+tools/pes3-disc-dump.exe
+tools/pes3-disc-dump.dll
+tools/pes3-disc-dump.runtimeconfig.json
+tools/pes3-disc-dump.deps.json
+tools/*.pdb
+tools/PES3-Disc.DumpCli/bin/
+tools/PES3-Disc.DumpCli/obj/
+external/ps3-disc-dumper/

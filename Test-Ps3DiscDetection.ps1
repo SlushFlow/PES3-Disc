@@ -112,12 +112,25 @@ try {
     }
 
     $statusMarker = Get-Ps3DiscVolumeStatus -DriveRoot $markerOnly
-    if ($statusMarker.Kind -ne 'IncompleteBurn') {
-        Write-Host "FAIL: marker-only should be IncompleteBurn, got $($statusMarker.Kind)" -ForegroundColor Red
+    if ($statusMarker.Kind -ne 'EncryptedRetail') {
+        Write-Host "FAIL: marker-only should be EncryptedRetail, got $($statusMarker.Kind)" -ForegroundColor Red
         $failures++
     }
     else {
-        Write-Host "PASS: Get-Ps3DiscVolumeStatus marker-only = IncompleteBurn" -ForegroundColor Green
+        Write-Host "PASS: Get-Ps3DiscVolumeStatus marker-only = EncryptedRetail" -ForegroundColor Green
+        $passed++
+    }
+
+    $encrypted = Join-Path $testRoot 'encrypted-eboot'
+    New-Item -ItemType Directory -Path (Join-Path $encrypted 'PS3_GAME\USRDIR') -Force | Out-Null
+    [IO.File]::WriteAllBytes((Join-Path $encrypted 'PS3_GAME\USRDIR\EBOOT.BIN'), [byte[]](0x53, 0x43, 0x45, 0, 0, 0, 2))
+    $statusEnc = Get-Ps3DiscVolumeStatus -DriveRoot $encrypted
+    if ($statusEnc.Kind -ne 'EncryptedRetail') {
+        Write-Host "FAIL: encrypted EBOOT should be EncryptedRetail" -ForegroundColor Red
+        $failures++
+    }
+    else {
+        Write-Host "PASS: encrypted EBOOT = EncryptedRetail" -ForegroundColor Green
         $passed++
     }
 }

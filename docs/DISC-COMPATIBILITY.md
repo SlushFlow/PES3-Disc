@@ -8,10 +8,10 @@ PES3-Disc only works when **Windows can read files** on the inserted volume. Tha
 |-----------|------------------------|------------------------|--------|
 | **DIY burn** (UDF/ISO9660 with `PS3_GAME` + `PS3_DISC.SFB`) | **Yes** | **No** (stock console) | PC-readable layout; RPCS3 needs **decrypted** `EBOOT.BIN`. |
 | **Decrypted dump burned/mounted** (folder from PS3 Disc Dumper, rip, etc.) | **Yes** | Varies | Same as DIY if the burn/mount exposes `PS3_GAME\USRDIR\EBOOT.BIN`. |
-| **Retail / official PS3 Blu-ray** in a normal PC drive | **No** | **Yes** (on PS3) | Encrypted/proprietary format; drive often looks **empty** to Windows. |
-| **Retail disc** in a **MediaTek** BD drive + manual dump | **After dump** | Yes on console | Use [PS3 Disc Dumper](https://git.rpcs3.net/rpcs3/ps3-disc-dumper), then burn or run from the **folder**—not from the raw disc. |
+| **Retail / official PS3 Blu-ray** | **Yes, with decrypt** | **Yes** (on PS3) | Use PES3-Disc retail decrypt (`Setup-RetailDecrypt.ps1`) — same requirements as PS3 Disc Dumper. |
+| **Retail disc, incompatible drive** | **No** | Yes on console | Drive cannot read PS3 media; upgrade to a [listed BD drive](https://rpcs3.net/quickstart#dumping_drives). |
 
-RPCS3 also **cannot** decrypt a live retail disc in the drive ([feature request #18345](https://github.com/RPCS3/rpcs3/issues/18345)); PES3-Disc only launches a path to `EBOOT.BIN` that already exists on a drive letter.
+PES3-Disc decrypts retail discs to a **cache folder**, then launches RPCS3 on the decrypted `EBOOT.BIN`. It does not stream decryption inside RPCS3 ([RPCS3 #18345](https://github.com/RPCS3/rpcs3/issues/18345)).
 
 ## DIY / file-based discs (supported)
 

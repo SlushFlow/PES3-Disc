@@ -186,8 +186,22 @@ function Test-HasPs3DiscMarker {
 function Get-Ps3DiscVolumeStatus {
     param([string]$DriveRoot)
 
-    $game = Find-Ps3GameOnDrive -DriveRoot $DriveRoot
-    if ($game) {
+    if (-not $DriveRoot.EndsWith('\')) { $DriveRoot = $DriveRoot + '\' }
+
+    $ebootPath = Test-PathEboot -Path (Join-Path $DriveRoot 'PS3_GAME\USRDIR\EBOOT.BIN')
+    $paramSfo = Join-Path $DriveRoot 'PS3_GAME\PARAM.SFO'
+    $hasParam = Test-Path -LiteralPath $paramSfo
+    $hasSfb = Test-HasPs3DiscMarker -DriveRoot $DriveRoot
+
+    if ($ebootPath) {
+        if (Test-EncryptedPs3Eboot -Path $ebootPath) {
+            return @{
+                Kind    = 'EncryptedRetail'
+                Message = 'Encrypted retail EBOOT.BIN detected; decryption required before RPCS3 can run.'
+                Game    = $null
+            }
+        }
+        $game = Get-Ps3GameFromEbootPath -EbootPath $ebootPath
         return @{
             Kind    = 'Playable'
             Message = 'Decrypted PS3_GAME layout with EBOOT.BIN found.'
@@ -195,7 +209,15 @@ function Get-Ps3DiscVolumeStatus {
         }
     }
 
-    if (Test-HasPs3DiscMarker -DriveRoot $DriveRoot) {
+    if ($hasParam -or $hasSfb) {
+        return @{
+            Kind    = 'EncryptedRetail'
+            Message = 'Retail PS3 disc structure detected (encrypted or partial mount).'
+            Game    = $null
+        }
+    }
+
+    if ($hasSfb) {
         return @{
             Kind    = 'IncompleteBurn'
             Message = 'PS3_DISC.SFB found but PS3_GAME\USRDIR\EBOOT.BIN is missing.'
@@ -205,7 +227,7 @@ function Get-Ps3DiscVolumeStatus {
 
     return @{
         Kind    = 'NoPs3Layout'
-        Message = 'No readable PS3 game folder. Typical for retail PS3 discs in a PC drive (encrypted/proprietary).'
+        Message = 'No PS3 layout on volume. Official discs may need a compatible BD drive; try retail decrypt if the disc is inserted.'
         Game    = $null
     }
 }
@@ -349,14 +371,28 @@ function Update-DiscScan {
                 Write-Log "Found PS3 game on $($drive.Letter): $($status.Game.Eboot)"
                 $prompted = Invoke-DiscPrompt -Drive $drive -Game $status.Game -PromptedVolumes $prompted
             }
+            'EncryptedRetail' {
+                Write-Log "Drive $($drive.Letter): $($status.Message)"
+                if (Test-RetailDecryptEnabled) {
+                    $prompted = Invoke-RetailDiscDecrypt -Drive $drive -PromptedVolumes $prompted
+                }
+            }
             'IncompleteBurn' {
                 Write-Log "Drive $($drive.Letter): $($status.Message)"
+                if (Test-RetailDecryptEnabled) {
+                    $prompted = Invoke-RetailDiscDecrypt -Drive $drive -PromptedVolumes $prompted
+                }
             }
             'NoPs3Layout' {
-                Write-Log "Drive $($drive.Letter): no PS3 folder layout (retail discs are usually unreadable on PC)."
+                Write-Log "Drive $($drive.Letter): $($status.Message)"
+                if ((Test-RetailDecryptEnabled) -and (Test-DecryptUnknownDisc)) {
+                    $prompted = Invoke-RetailDiscDecrypt -Drive $drive -PromptedVolumes $prompted
+                }
             }
         }
     }
 
     Set-PromptedVolumes -Volumes $prompted
 }
+
+. (Join-Path $Script:Root 'Ps3DiscRun.Retail.ps1')
