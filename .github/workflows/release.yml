@@ -45,6 +45,18 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
+      - name: Validate PowerShell scripts
+        shell: pwsh
+        run: |
+          foreach ($f in @('Build-App.ps1', 'Build-Installer.ps1')) {
+            $tokens = $null; $errs = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f), [ref]$tokens, [ref]$errs)
+            if ($errs) {
+              $errs | ForEach-Object { Write-Error $_ }
+              throw "Parse errors in $f"
+            }
+          }
+
       - name: Build PES3-Disc and installer
         shell: pwsh
         env:
