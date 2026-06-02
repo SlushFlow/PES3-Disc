@@ -4,7 +4,23 @@
 
 Repository: [github.com/SlushFlow/PES3-Disc](https://github.com/SlushFlow/PES3-Disc)
 
-When you insert a PS3 game disc (or a burned disc with the standard PS3 folder layout), a dialog asks whether to launch the game in **RPCS3**. **Yes** starts RPCS3 with that disc’s `EBOOT.BIN`. **No** does nothing.
+When you insert a PS3 game disc (or a burned disc with the standard PS3 folder layout), PES3-Disc helps you **decrypt** (retail discs) and **play** in **RPCS3**.
+
+## Desktop app (recommended)
+
+Build a single **GUI executable** — setup, decrypt, and play in one place:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Build-App.ps1
+```
+
+Run **`dist\PES3-Disc.exe`**. First launch opens a setup wizard (RPCS3 path, options). The main window scans drives and offers **Play** or **Decrypt & play**.
+
+Details: [docs/GUI-APP.md](docs/GUI-APP.md)
+
+### Legacy background watcher
+
+Without the exe, use PowerShell: copy `config.example.json` → `config.json`, then **`Start-PES3-Disc.bat`** (hidden watcher + tray-style prompts).
 
 ## Requirements
 
@@ -127,14 +143,17 @@ Example:
 
 | File | Purpose |
 |------|---------|
-| `Start-PES3-Disc.bat` | Start the background watcher |
-| `DiscRun.ps1` | Watcher + `-Scan` / `-RemoveOnly` for disc events |
-| `Ps3DiscRun.ps1` | Core library (config, paths, retail decrypt) |
-| `Setup.ps1` | `-Config`, `-Startup`, `-RetailDecrypt`, or `-All` |
+| `Build-App.ps1` | Build **`dist\PES3-Disc.exe`** (GUI) |
+| `src\PES3-Disc.App\` | WPF desktop app |
+| `src\PES3-Disc.Core\` | Shared C# library (detect, decrypt, launch) |
+| `Start-PES3-Disc.bat` | Launch GUI exe if built, else PowerShell watcher |
+| `DiscRun.ps1` | Legacy watcher + `-Scan` / `-RemoveOnly` |
+| `Ps3DiscRun.ps1` | Legacy PowerShell library |
+| `Setup.ps1` | Legacy `-Config`, `-Startup`, `-RetailDecrypt` |
 | `Backup.ps1` | `-List`, `-Restore`, `-BackupNow` |
-| `Test-Ps3DiscDetection.ps1` | Layout tests |
-| `config.example.json` | Config template |
-| `tools/` | `pes3-disc-dump.exe` (after `-RetailDecrypt` setup) |
+| `Test-PES3-Integration.ps1` | Full integration test |
+| `config.example.json` | Config template (scripts / portable exe) |
+| `docs/GUI-APP.md` | Desktop app guide |
 | `docs/` | Compatibility and retail decrypt guides |
 
 ## RPCS3 settings

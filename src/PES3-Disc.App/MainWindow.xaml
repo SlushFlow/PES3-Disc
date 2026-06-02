@@ -1,0 +1,41 @@
+<Window x:Class="PES3Disc.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PES3-Disc"
+        Height="640" Width="720"
+        MinHeight="480" MinWidth="560"
+        WindowStartupLocation="CenterScreen">
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <Grid Grid.Row="0" Margin="0,0,0,16">
+      <StackPanel>
+        <TextBlock Text="PES3-Disc" FontSize="28" FontWeight="Bold"/>
+        <TextBlock x:Name="SubtitleText" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+        <Button Content="Scan" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="Scan_Click"/>
+        <Button Content="Settings" Style="{StaticResource SecondaryButton}" Click="Settings_Click"/>
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="12">
+      <TextBlock x:Name="StatusBanner" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
+    </Border>
+
+    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
+      <StackPanel x:Name="DiscListPanel">
+        <TextBlock x:Name="EmptyText" Text="Insert a PS3 disc or click Scan."
+                   Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" Margin="0,40,0,0"/>
+      </StackPanel>
+    </ScrollViewer>
+
+    <TextBlock Grid.Row="3" x:Name="FooterText" FontSize="11" Foreground="{StaticResource MutedBrush}"
+               Margin="0,12,0,0" TextWrapping="Wrap"/>
+  </Grid>
+</Window>

@@ -1,0 +1,58 @@
+<Window x:Class="PES3Disc.App.SetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PES3-Disc Setup"
+        Height="520" Width="560"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize">
+  <Grid Margin="28">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,20">
+      <TextBlock Text="Welcome to PES3-Disc" FontSize="26" FontWeight="Bold"/>
+      <TextBlock Text="Point to RPCS3, then decrypt and play PS3 discs from one app."
+                 Foreground="{StaticResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+    </StackPanel>
+
+    <Border Grid.Row="1" Style="{StaticResource CardBorder}">
+      <StackPanel>
+        <TextBlock Text="RPCS3 location" FontWeight="SemiBold"/>
+        <TextBlock Text="Required — used to launch games and store PES3 data."
+                   Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,4,0,12"/>
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <TextBox x:Name="Rpcs3PathBox" Padding="10,8" Background="#0F1419" Foreground="{StaticResource TextBrush}"
+                   BorderBrush="{StaticResource BorderBrush}" IsReadOnly="True"/>
+          <Button Grid.Column="1" Content="Browse…" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}"
+                  Click="BrowseRpcs3_Click"/>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="2" Style="{StaticResource CardBorder}" VerticalAlignment="Top">
+      <StackPanel>
+        <TextBlock Text="Options" FontWeight="SemiBold" Margin="0,0,0,12"/>
+        <CheckBox x:Name="DeleteCacheCheck" Content="Delete decrypt folder when RPCS3 closes (recommended)"
+                  IsChecked="True" Foreground="{StaticResource TextBrush}" Margin="0,0,0,8"/>
+        <CheckBox x:Name="StartupCheck" Content="Start PES3-Disc when Windows starts"
+                  Foreground="{StaticResource TextBrush}" Margin="0,0,0,8"/>
+        <CheckBox x:Name="BackupsCheck" Content="Backup game files before deleting cache"
+                  IsChecked="True" Foreground="{StaticResource TextBrush}"/>
+        <TextBlock x:Name="StatusText" Foreground="{StaticResource MutedBrush}" Margin="0,16,0,0" TextWrapping="Wrap"/>
+      </StackPanel>
+    </Border>
+
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+      <Button Content="Cancel" Style="{StaticResource SecondaryButton}" Margin="0,0,10,0" Click="Cancel_Click"/>
+      <Button x:Name="FinishButton" Content="Finish setup" Style="{StaticResource PrimaryButton}" Click="Finish_Click"/>
+    </StackPanel>
+  </Grid>
+</Window>

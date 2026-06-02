@@ -3,6 +3,9 @@ prompted-volumes.json
 disc-run.log
 pes3-disc.log
 
+dist/
+src/**/bin/
+src/**/obj/
 tools/pes3-disc-dump.exe
 tools/pes3-disc-dump.dll
 tools/pes3-disc-dump.runtimeconfig.json
