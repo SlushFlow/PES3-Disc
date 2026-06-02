@@ -8,7 +8,25 @@ When you insert a PS3 game disc (or a burned disc with the standard PS3 folder l
 
 ## Desktop app (recommended)
 
-Build a single **GUI executable** — setup, decrypt, and play in one place:
+### Installer (easiest)
+
+Build **`PES3-Disc-Setup.exe`** — installs the app **and** .NET 8 + .NET 10 runtimes:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Build-Installer.ps1
+```
+
+Output: `installer\output\PES3-Disc-Setup.exe` (requires [Inno Setup 6](https://jrsoftware.org/isdl.php) to compile).
+
+No Inno Setup? Run as **Administrator** after `Build-App.ps1`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\Install-PES3-Disc.ps1
+```
+
+Details: [installer/README.md](installer/README.md)
+
+### Run without installer
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File Build-App.ps1
@@ -143,7 +161,9 @@ Example:
 
 | File | Purpose |
 |------|---------|
-| `Build-App.ps1` | Build **`dist\PES3-Disc.exe`** (GUI) |
+| `Build-Installer.ps1` | Build **`installer\output\PES3-Disc-Setup.exe`** (app + .NET 8/10) |
+| `Build-App.ps1` | Build **`dist\PES3-Disc.exe`** (GUI only) |
+| `installer\` | Inno Setup script + PowerShell installer |
 | `src\PES3-Disc.App\` | WPF desktop app |
 | `src\PES3-Disc.Core\` | Shared C# library (detect, decrypt, launch) |
 | `Start-PES3-Disc.bat` | Launch GUI exe if built, else PowerShell watcher |
