@@ -119,43 +119,95 @@ function Read-ParamSfoTitle {
     return $null
 }
 
+function Test-PathEboot {
+    param([string]$Path)
+    if (Test-Path -LiteralPath $Path) { return $Path }
+    # Windows is usually case-insensitive; explicit check for odd ISO mounts
+    $dir = Split-Path $Path -Parent
+    $file = Split-Path $Path -Leaf
+    if (-not (Test-Path -LiteralPath $dir)) { return $null }
+    $match = Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ieq $file }
+    if ($match) { return $match.FullName }
+    return $null
+}
+
+function Get-Ps3GameFromEbootPath {
+    param([string]$EbootPath)
+    $ps3Game = Split-Path (Split-Path $EbootPath -Parent) -Parent
+    $sfo = Join-Path $ps3Game 'PARAM.SFO'
+    $title = Read-ParamSfoTitle -SfoPath $sfo
+    return @{
+        Eboot      = $EbootPath
+        Title      = $title
+        Ps3GameDir = $ps3Game
+    }
+}
+
 function Find-Ps3GameOnDrive {
     param([string]$DriveRoot)
+
+    if (-not $DriveRoot.EndsWith('\')) {
+        $DriveRoot = $DriveRoot + '\'
+    }
 
     $layouts = @(
         (Join-Path $DriveRoot 'PS3_GAME\USRDIR\EBOOT.BIN'),
         (Join-Path $DriveRoot 'dev_bdvd\PS3_GAME\USRDIR\EBOOT.BIN')
     )
 
-    foreach ($eboot in $layouts) {
-        if (Test-Path -LiteralPath $eboot) {
-            $ps3Game = Split-Path (Split-Path (Split-Path $eboot -Parent) -Parent) -Parent
-            $sfo = Join-Path $ps3Game 'PARAM.SFO'
-            $title = Read-ParamSfoTitle -SfoPath $sfo
-            return @{
-                Eboot = $eboot
-                Title = $title
-            }
+    foreach ($candidate in $layouts) {
+        $eboot = Test-PathEboot -Path $candidate
+        if ($eboot) {
+            return Get-Ps3GameFromEbootPath -EbootPath $eboot
         }
     }
 
     try {
         foreach ($dir in Get-ChildItem -LiteralPath $DriveRoot -Directory -ErrorAction SilentlyContinue) {
-            $eboot = Join-Path $dir.FullName 'PS3_GAME\USRDIR\EBOOT.BIN'
-            if (Test-Path -LiteralPath $eboot) {
-                $ps3Game = Join-Path $dir.FullName 'PS3_GAME'
-                $sfo = Join-Path $ps3Game 'PARAM.SFO'
-                $title = Read-ParamSfoTitle -SfoPath $sfo
-                return @{
-                    Eboot = $eboot
-                    Title = $title
-                }
+            $eboot = Test-PathEboot -Path (Join-Path $dir.FullName 'PS3_GAME\USRDIR\EBOOT.BIN')
+            if ($eboot) {
+                return Get-Ps3GameFromEbootPath -EbootPath $eboot
             }
         }
     }
     catch { }
 
     return $null
+}
+
+function Test-HasPs3DiscMarker {
+    param([string]$DriveRoot)
+    if (-not $DriveRoot.EndsWith('\')) { $DriveRoot = $DriveRoot + '\' }
+    return (Test-Path -LiteralPath (Join-Path $DriveRoot 'PS3_DISC.SFB'))
+}
+
+# Classifies what Windows can see on a volume (used for logging / future prompts).
+function Get-Ps3DiscVolumeStatus {
+    param([string]$DriveRoot)
+
+    $game = Find-Ps3GameOnDrive -DriveRoot $DriveRoot
+    if ($game) {
+        return @{
+            Kind    = 'Playable'
+            Message = 'Decrypted PS3_GAME layout with EBOOT.BIN found.'
+            Game    = $game
+        }
+    }
+
+    if (Test-HasPs3DiscMarker -DriveRoot $DriveRoot) {
+        return @{
+            Kind    = 'IncompleteBurn'
+            Message = 'PS3_DISC.SFB found but PS3_GAME\USRDIR\EBOOT.BIN is missing.'
+            Game    = $null
+        }
+    }
+
+    return @{
+        Kind    = 'NoPs3Layout'
+        Message = 'No readable PS3 game folder. Typical for retail PS3 discs in a PC drive (encrypted/proprietary).'
+        Game    = $null
+    }
 }
 
 function Get-OpticalDrives {
@@ -291,10 +343,18 @@ function Update-DiscScan {
     }
 
     foreach ($drive in Get-OpticalDrives) {
-        $game = Find-Ps3GameOnDrive -DriveRoot $drive.Root
-        if ($game) {
-            Write-Log "Found PS3 game on $($drive.Letter): $($game.Eboot)"
-            $prompted = Invoke-DiscPrompt -Drive $drive -Game $game -PromptedVolumes $prompted
+        $status = Get-Ps3DiscVolumeStatus -DriveRoot $drive.Root
+        switch ($status.Kind) {
+            'Playable' {
+                Write-Log "Found PS3 game on $($drive.Letter): $($status.Game.Eboot)"
+                $prompted = Invoke-DiscPrompt -Drive $drive -Game $status.Game -PromptedVolumes $prompted
+            }
+            'IncompleteBurn' {
+                Write-Log "Drive $($drive.Letter): $($status.Message)"
+            }
+            'NoPs3Layout' {
+                Write-Log "Drive $($drive.Letter): no PS3 folder layout (retail discs are usually unreadable on PC)."
+            }
         }
     }
 

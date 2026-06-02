@@ -19,7 +19,20 @@ When you insert a PS3 game disc (or a burned disc with the standard PS3 folder l
 
   Optional root file: `PS3_DISC.SFB`
 
-> **Note:** Many retail PS3 Blu-ray discs are **not** exposed as normal files on a PC drive. PES3-Disc works when Windows can read `PS3_GAME` on the disc (common for self-burned copies or discs created from a rip). For encrypted retail discs, rip to folder/ISO and burn or mount with that structure.
+## Official vs DIY discs
+
+| Disc type | PES3-Disc |
+|-----------|-----------|
+| **DIY / burned / mounted** disc with `PS3_GAME\USRDIR\EBOOT.BIN` (decrypted) | **Works** |
+| **Retail PS3 Blu-ray** in a normal PC drive | **Does not work** — Windows usually sees an empty/non-game volume; RPCS3 cannot decrypt live discs |
+
+Full details: [docs/DISC-COMPATIBILITY.md](docs/DISC-COMPATIBILITY.md)
+
+Run layout tests anytime:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Test-Ps3DiscDetection.ps1
+```
 
 ## Quick start
 
@@ -68,6 +81,8 @@ Example:
 | `Setup-Config.ps1` | Pick RPCS3 path |
 | `Install-Startup.ps1` | Add to Windows Startup |
 | `disc-run.log` | Activity log (created at runtime, not in git) |
+| `Test-Ps3DiscDetection.ps1` | Automated layout tests (DIY vs retail-style) |
+| `docs/DISC-COMPATIBILITY.md` | Official vs DIY disc matrix |
 
 ## RPCS3 settings
 
