@@ -21,13 +21,31 @@ Or set `"DumpCliPath"` in `config.json` if you built the CLI elsewhere.
 - **Free disk space** for the full decrypted game (often 10–40+ GB)
 - **Time**: often 30–90+ minutes per disc
 
-## How it works
+## PES3 folder (next to RPCS3)
 
-1. You insert an official disc → PES3-Disc detects **EncryptedRetail** (SFB / PARAM.SFO / encrypted `EBOOT.BIN`).
+When `Rpcs3Path` is set, PES3-Disc stores data under **`RPCS3\PES3\`** (not mixed with `dev_hdd0`):
+
+```
+RPCS3\
+  rpcs3.exe
+  dev_hdd0\          ← RPCS3 saves, installs (never deleted by PES3-Disc)
+  PES3\
+    cache\           ← persistent dumps (only if DeleteCacheAfterPlay is false)
+    temp\            ← ephemeral decrypt sessions (default)
+    logs\disc-run.log
+    state\prompted-volumes.json
+```
+
+## How it works (default: ephemeral cache)
+
+1. You insert an official disc → PES3-Disc detects **EncryptedRetail**.
 2. You confirm **Decrypt and play**.
-3. `pes3-disc-dump.exe` scans the drive, fetches keys, decrypts to `%LocalAppData%\PES3-Disc\cache` (or `DumpCachePath`).
-4. When finished, PES3-Disc asks to launch **RPCS3** with the decrypted `EBOOT.BIN`.
-5. Later inserts of the same game can reuse the cache (by title ID folder).
+3. `pes3-disc-dump.exe` decrypts into **`PES3\temp\session-…`** (or `PES3\cache` if you keep cache).
+4. RPCS3 launches with the decrypted `EBOOT.BIN`.
+5. When you **close RPCS3**, PES3-Disc deletes the decrypt folder automatically.
+6. **Save data** stays in `dev_hdd0` — only the ripped game files are removed.
+
+Set `"DeleteCacheAfterPlay": false` to keep decrypted games in `PES3\cache` for faster re-plays.
 
 ## Config (`config.json`)
 
@@ -35,7 +53,8 @@ Or set `"DumpCliPath"` in `config.json` if you built the CLI elsewhere.
 |--------|---------|---------|
 | `EnableRetailDecrypt` | `true` | Offer decrypt for detected retail layouts |
 | `DecryptUnknownOpticalMedia` | `false` | Also offer decrypt when **no** PS3 files are visible (empty-looking disc) |
-| `DumpCachePath` | `%LocalAppData%\PES3-Disc\cache` | Where decrypted games are stored |
+| `DeleteCacheAfterPlay` | `true` | Remove decrypt folder when RPCS3 exits |
+| `DumpCachePath` | `""` (empty) | Use `RPCS3\PES3\cache`; set only to override |
 | `DumpCliPath` | `""` | Override path to `pes3-disc-dump.exe` |
 
 ## Limits

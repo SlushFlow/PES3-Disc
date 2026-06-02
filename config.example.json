@@ -4,6 +4,7 @@
   "UseNoGui": false,
   "EnableRetailDecrypt": true,
   "DecryptUnknownOpticalMedia": false,
-  "DumpCachePath": "C:\\Users\\YourName\\AppData\\Local\\PES3-Disc\\cache",
+  "DeleteCacheAfterPlay": true,
+  "DumpCachePath": "",
   "DumpCliPath": ""
 }

@@ -17,19 +17,15 @@ function Get-DumpCliPath {
     return $null
 }
 
-function Get-DumpCacheRoot {
-    $config = Get-Config
-    if ($config -and $config.DumpCachePath) {
-        return $config.DumpCachePath
-    }
-    return Join-Path $env:LOCALAPPDATA 'PES3-Disc\cache'
-}
-
 function Get-CachedRetailDump {
     param(
         [string]$VolumeId,
         [string]$ProductCode
     )
+
+    if (Test-DeleteCacheAfterPlay) {
+        return $null
+    }
 
     $cacheRoot = Get-DumpCacheRoot
     $search = @()
@@ -170,10 +166,21 @@ You need:
         return $PromptedVolumes
     }
 
-    $cached = Get-CachedRetailDump -VolumeId $Drive.Id -ProductCode $null
-    if ($cached) {
-        Write-Log "Using cached retail dump: $($cached.Game.Eboot)"
-        return Invoke-DiscPrompt -Drive $Drive -Game $cached.Game -PromptedVolumes $PromptedVolumes
+    $ephemeral = Test-DeleteCacheAfterPlay
+    if (-not $ephemeral) {
+        $cached = Get-CachedRetailDump -VolumeId $Drive.Id -ProductCode $null
+        if ($cached) {
+            Write-Log "Using cached retail dump: $($cached.Game.Eboot)"
+            return Invoke-DiscPrompt -Drive $Drive -Game $cached.Game -PromptedVolumes $PromptedVolumes
+        }
+    }
+
+    [void](Initialize-Pes3DataPaths)
+    $pes3Note = if ($Script:Pes3Root) { "`nDecrypted files go under: $Script:Pes3Root" } else { '' }
+    $ephemeralNote = if ($ephemeral) {
+        "`nCache is removed when you close RPCS3 (saves stay in dev_hdd0)."
+    } else {
+        ''
     }
 
     Add-Type -AssemblyName System.Windows.Forms
@@ -181,11 +188,11 @@ You need:
         @"
 A retail PS3 disc was detected on drive $($Drive.Letter):.
 
-PES3-Disc can decrypt it to your cache and launch RPCS3. This requires:
+PES3-Disc can decrypt it and launch RPCS3. This requires:
 • A compatible Blu-ray drive (MediaTek chipset - see RPCS3 quickstart)
 • PS3_DISC.SFB visible on the disc in Windows (many official discs show at least this)
 • An IRD key in the online databases (same as PS3 Disc Dumper)
-• Tens of GB free space and a long wait (30–90+ min)
+• Tens of GB free space and a long wait (30-90+ min)$pes3Note$ephemeralNote
 
 Decrypt and play now?
 "@,
@@ -197,13 +204,17 @@ Decrypt and play now?
         return $PromptedVolumes
     }
 
-    $cacheRoot = Get-DumpCacheRoot
-  if (-not (Test-Path -LiteralPath $cacheRoot)) {
-        New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null
+    if ($ephemeral) {
+        $sessionDir = Get-EphemeralSessionDir
     }
-
-    $sessionDir = Join-Path $cacheRoot ("dump-{0:yyyyMMdd-HHmmss}" -f (Get-Date))
-    New-Item -ItemType Directory -Path $sessionDir -Force | Out-Null
+    else {
+        $cacheRoot = Get-DumpCacheRoot
+        if (-not (Test-Path -LiteralPath $cacheRoot)) {
+            New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null
+        }
+        $sessionDir = Join-Path $cacheRoot ("dump-{0:yyyyMMdd-HHmmss}" -f (Get-Date))
+        New-Item -ItemType Directory -Path $sessionDir -Force | Out-Null
+    }
     $progressFile = Join-Path $env:TEMP ("pes3-disc-progress-{0}.json" -f [Guid]::NewGuid().ToString('N'))
 
     $ui = Show-DecryptProgressForm -Title "Decrypting disc on drive $($Drive.Letter):..."
@@ -252,6 +263,7 @@ Decrypt and play now?
 
     if ($cancelRequested) {
         Write-Log 'Retail decrypt cancelled by user'
+        if ($ephemeral) { Remove-EphemeralCacheDirs -CleanupDirs @($sessionDir) }
         return $PromptedVolumes
     }
 
@@ -271,6 +283,7 @@ Decrypt and play now?
             }
         }
         Write-Log "Retail decrypt failed (exit $exitCode): $msg"
+        if ($ephemeral) { Remove-EphemeralCacheDirs -CleanupDirs @($sessionDir) }
         [void][System.Windows.Forms.MessageBox]::Show(
             "$msg`n`nSee disc-run.log. Ensure your drive is on the RPCS3 compatible list and the game has a known IRD key.",
             'PES3-Disc',
@@ -288,6 +301,9 @@ Decrypt and play now?
     }
 
     if (-not $dumpResult -or -not $dumpResult.Eboot) {
+        if ($ephemeral) {
+            Remove-EphemeralCacheDirs -CleanupDirs @($sessionDir)
+        }
         $cached = Get-CachedRetailDump -VolumeId $Drive.Id -ProductCode $null
         if (-not $cached) {
             Write-Log 'Decrypt finished but EBOOT not located'
@@ -296,18 +312,32 @@ Decrypt and play now?
         $game = $cached.Game
     }
     else {
-        $game = @{
-            Eboot = $dumpResult.Eboot
-            Title = $dumpResult.Title
-        }
-        if ($dumpResult.ProductCode) {
+        $gameRoot = $dumpResult.GameRoot
+        $ebootPath = $dumpResult.Eboot
+
+        if (-not $ephemeral -and $dumpResult.ProductCode -and $gameRoot) {
+            $cacheRoot = Get-DumpCacheRoot
             $finalCache = Join-Path $cacheRoot $dumpResult.ProductCode
-            if ($dumpResult.GameRoot -and (Test-Path $dumpResult.GameRoot)) {
+            if (Test-Path -LiteralPath $gameRoot) {
                 if (Test-Path -LiteralPath $finalCache) {
                     Remove-Item -LiteralPath $finalCache -Recurse -Force -ErrorAction SilentlyContinue
                 }
-                Move-Item -LiteralPath $dumpResult.GameRoot -Destination $finalCache -ErrorAction SilentlyContinue
+                Move-Item -LiteralPath $gameRoot -Destination $finalCache -ErrorAction SilentlyContinue
+                $gameRoot = $finalCache
+                $ebootPath = Join-Path $finalCache 'PS3_GAME\USRDIR\EBOOT.BIN'
             }
+        }
+
+        $cleanupDirs = @()
+        if ($ephemeral) {
+            if ($gameRoot) { $cleanupDirs += $gameRoot }
+            $cleanupDirs += $sessionDir
+        }
+
+        $game = @{
+            Eboot                = $ebootPath
+            Title                = $dumpResult.Title
+            EphemeralCleanupDirs = $cleanupDirs
         }
     }
 

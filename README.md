@@ -32,7 +32,7 @@ For official discs, run **one-time** setup:
 powershell -ExecutionPolicy Bypass -File Setup-RetailDecrypt.ps1
 ```
 
-Then insert the disc → confirm **Decrypt and play**. Requires a [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives) and IRD keys (same as PS3 Disc Dumper).
+Then insert the disc → confirm **Decrypt and play**. Decrypted files go under **`RPCS3\PES3\`** and are **removed when you close RPCS3** by default (saves in `dev_hdd0` are kept). Requires a [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives) and IRD keys.
 
 - DIY / layout details: [docs/DISC-COMPATIBILITY.md](docs/DISC-COMPATIBILITY.md)  
 - Retail decrypt: [docs/RETAIL-DECRYPT.md](docs/RETAIL-DECRYPT.md)
@@ -61,6 +61,19 @@ powershell -ExecutionPolicy Bypass -File Install-Startup.ps1
 
 This adds a **PES3-Disc** shortcut to your Startup folder. Remove it from **Settings → Apps → Startup** to disable.
 
+## PES3 folder layout
+
+With `Rpcs3Path` configured, runtime data lives under **`RPCS3\PES3\`**:
+
+| Path | Purpose |
+|------|---------|
+| `PES3\temp\` | Ephemeral decrypt (default; deleted when RPCS3 closes) |
+| `PES3\cache\` | Persistent decrypts if `DeleteCacheAfterPlay` is `false` |
+| `PES3\logs\` | `disc-run.log` |
+| `PES3\state\` | Watcher state (not game saves) |
+
+`config.json` stays in the PES3-Disc install folder. **`dev_hdd0` is never touched** by cache cleanup.
+
 ## Configuration (`config.json`)
 
 | Field | Description |
@@ -68,6 +81,8 @@ This adds a **PES3-Disc** shortcut to your Startup folder. Remove it from **Sett
 | `Rpcs3Path` | Full path to `rpcs3.exe` |
 | `ScanDelaySeconds` | Wait after insert before scanning (default `3`) |
 | `UseNoGui` | If `true`, passes `--no-gui` to RPCS3 |
+| `DeleteCacheAfterPlay` | If `true` (default), delete decrypt folder when RPCS3 exits |
+| `DumpCachePath` | Leave `""` to use `RPCS3\PES3\cache` |
 
 Example:
 

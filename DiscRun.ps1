@@ -14,6 +14,10 @@ if (-not $mutex.WaitOne(0, $false)) {
 }
 
 Write-Log 'PES3-Disc started'
+[void](Initialize-Pes3DataPaths)
+if ($Script:Pes3Root) {
+    Write-Log "PES3 data folder: $Script:Pes3Root"
+}
 
 $config = Get-Config
 if (-not $config -or -not $config.Rpcs3Path -or -not (Test-Path -LiteralPath $config.Rpcs3Path)) {

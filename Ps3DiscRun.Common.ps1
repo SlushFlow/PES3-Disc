@@ -45,20 +45,6 @@ function Get-Config {
     }
 }
 
-function Save-Config {
-    param(
-        [string]$Rpcs3Path,
-        [int]$ScanDelaySeconds = 3,
-        [bool]$UseNoGui = $false
-    )
-    $obj = [ordered]@{
-        Rpcs3Path        = $Rpcs3Path
-        ScanDelaySeconds = $ScanDelaySeconds
-        UseNoGui         = $UseNoGui
-    }
-    ($obj | ConvertTo-Json) | Set-Content -LiteralPath $Script:ConfigPath -Encoding UTF8
-}
-
 function Find-Rpcs3Executable {
     $candidates = @(
         (Join-Path $env:LOCALAPPDATA 'RPCS3\rpcs3.exe'),
@@ -73,6 +59,30 @@ function Find-Rpcs3Executable {
         }
     }
     return $null
+}
+
+. (Join-Path $Script:Root 'Ps3DiscRun.Paths.ps1')
+
+function Save-Config {
+    param(
+        [string]$Rpcs3Path,
+        [int]$ScanDelaySeconds = 3,
+        [bool]$UseNoGui = $false
+    )
+    $existing = Get-Config
+    $obj = [ordered]@{
+        Rpcs3Path                    = $Rpcs3Path
+        ScanDelaySeconds             = $ScanDelaySeconds
+        UseNoGui                     = $UseNoGui
+        EnableRetailDecrypt          = if ($existing -and $null -ne $existing.EnableRetailDecrypt) { $existing.EnableRetailDecrypt } else { $true }
+        DecryptUnknownOpticalMedia   = if ($existing -and $null -ne $existing.DecryptUnknownOpticalMedia) { $existing.DecryptUnknownOpticalMedia } else { $false }
+        DeleteCacheAfterPlay         = if ($existing -and $null -ne $existing.DeleteCacheAfterPlay) { $existing.DeleteCacheAfterPlay } else { $true }
+        DumpCachePath                = if ($existing -and $existing.DumpCachePath) { $existing.DumpCachePath } else { '' }
+        DumpCliPath                  = if ($existing -and $existing.DumpCliPath) { $existing.DumpCliPath } else { '' }
+    }
+    ($obj | ConvertTo-Json) | Set-Content -LiteralPath $Script:ConfigPath -Encoding UTF8
+    $Script:PathsInitialized = $false
+    [void](Initialize-Pes3DataPaths)
 }
 
 function Read-ParamSfoTitle {
@@ -257,7 +267,8 @@ function Start-Rpcs3Game {
     param(
         [string]$Rpcs3Path,
         [string]$EbootPath,
-        [bool]$UseNoGui
+        [bool]$UseNoGui,
+        [string[]]$EphemeralCleanupDirs = @()
     )
 
     $argList = @()
@@ -265,7 +276,13 @@ function Start-Rpcs3Game {
     $argList += $EbootPath
 
     Write-Log "Launching: $Rpcs3Path $($argList -join ' ')"
-    Start-Process -FilePath $Rpcs3Path -ArgumentList $argList -WorkingDirectory (Split-Path $Rpcs3Path -Parent)
+    $proc = Start-Process -FilePath $Rpcs3Path -ArgumentList $argList -WorkingDirectory (Split-Path $Rpcs3Path -Parent) -PassThru
+
+    if ($EphemeralCleanupDirs -and $EphemeralCleanupDirs.Count -gt 0 -and $proc) {
+        Register-EphemeralCacheCleanup -ProcessId $proc.Id -CleanupDirs $EphemeralCleanupDirs
+    }
+
+    return $proc
 }
 
 function Invoke-DiscPrompt {
@@ -325,15 +342,20 @@ Run this game in RPCS3 now?
         [System.Windows.Forms.MessageBoxIcon]::Question
     )
 
+    $cleanupDirs = Get-PathsToCleanupForGame -Game $Game
+
     if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
         $useNoGui = $false
         if ($config -and $null -ne $config.UseNoGui) {
             $useNoGui = [bool]$config.UseNoGui
         }
-        Start-Rpcs3Game -Rpcs3Path $rpcs3 -EbootPath $Game.Eboot -UseNoGui $useNoGui
+        Start-Rpcs3Game -Rpcs3Path $rpcs3 -EbootPath $Game.Eboot -UseNoGui $useNoGui -EphemeralCleanupDirs $cleanupDirs
     }
     else {
         Write-Log "User declined: $($Game.Eboot)"
+        if ($cleanupDirs.Count -gt 0) {
+            Remove-EphemeralCacheDirs -CleanupDirs $cleanupDirs
+        }
     }
 
     return $PromptedVolumes
@@ -359,6 +381,8 @@ function Update-DiscScan {
         Set-PromptedVolumes -Volumes $prompted
         return
     }
+
+    [void](Initialize-Pes3DataPaths)
 
     if ($DelaySeconds -gt 0) {
         Start-Sleep -Seconds $DelaySeconds
