@@ -13,12 +13,32 @@ $ErrorActionPreference = 'SilentlyContinue'
 . (Join-Path $PSScriptRoot 'Ps3DiscRun.ps1')
 
 if ($Scan -or $RemoveOnly) {
-    $config = Get-Config
-    $delay = 3
-    if ($config -and $config.ScanDelaySeconds) {
-        $delay = [int]$config.ScanDelaySeconds
+    $lockFile = Join-Path $env:TEMP 'pes3-disc-scan.lock'
+    if (-not $RemoveOnly -and (Test-Path -LiteralPath $lockFile)) {
+        $lockAge = (Get-Date) - (Get-Item -LiteralPath $lockFile).LastWriteTime
+        if ($lockAge.TotalSeconds -lt 12) {
+            Write-Log 'Scan skipped (another scan in progress)'
+            exit 0
+        }
     }
-    Update-DiscScan -DelaySeconds $(if ($RemoveOnly) { 0 } else { $delay }) -RemoveOnly:$RemoveOnly
+
+    if (-not $RemoveOnly) {
+        New-Item -ItemType File -Path $lockFile -Force | Out-Null
+    }
+
+    try {
+        $config = Get-Config
+        $delay = 3
+        if ($config -and $config.ScanDelaySeconds) {
+            $delay = [int]$config.ScanDelaySeconds
+        }
+        Update-DiscScan -DelaySeconds $(if ($RemoveOnly) { 0 } else { $delay }) -RemoveOnly:$RemoveOnly
+    }
+    finally {
+        if (-not $RemoveOnly) {
+            Remove-Item -LiteralPath $lockFile -Force -ErrorAction SilentlyContinue
+        }
+    }
     exit 0
 }
 
@@ -57,7 +77,9 @@ Start-Process -FilePath 'powershell.exe' `
 $root = $PSScriptRoot
 $queryInsert = "SELECT * FROM Win32_VolumeChangeEvent WHERE EventType = 2"
 Register-WmiEvent -Query $queryInsert -SourceIdentifier 'Ps3DiscInsert' -Action {
-    Start-Sleep -Seconds 1
+    $delay = $using:scanDelay
+    if ($delay -lt 1) { $delay = 1 }
+    Start-Sleep -Seconds $delay
     $script = Join-Path $using:root 'DiscRun.ps1'
     Start-Process -FilePath 'powershell.exe' -ArgumentList @(
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',

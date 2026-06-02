@@ -6,5 +6,10 @@
   "DecryptUnknownOpticalMedia": false,
   "DeleteCacheAfterPlay": true,
   "DumpCachePath": "",
-  "DumpCliPath": ""
+  "DumpCliPath": "",
+  "EnableBackups": true,
+  "BackupSaves": true,
+  "BackupOnLaunch": false,
+  "MaxBackupsPerTitle": 3,
+  "BackupPath": ""
 }

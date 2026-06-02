@@ -73,8 +73,13 @@ With `Rpcs3Path` configured, runtime data lives under **`RPCS3\PES3\`**:
 | `PES3\cache\` | Persistent decrypts if `DeleteCacheAfterPlay` is `false` |
 | `PES3\logs\` | `disc-run.log` |
 | `PES3\state\` | Watcher state (not game saves) |
+| `PES3\backups\` | Game (+ optional save) snapshots before delete/replace |
 
-`config.json` stays in the PES3-Disc install folder. **`dev_hdd0` is never touched** by cache cleanup.
+`config.json` stays in the PES3-Disc install folder. **`dev_hdd0` is never touched** by cache cleanup (save folders may be **copied** into backups when enabled).
+
+### Backups
+
+Before ephemeral decrypt folders are removed, PES3-Disc can copy the game tree (and optionally `dev_hdd0\savedata\<TITLE_ID>`) under `PES3\backups\`. List or restore with `Backup.ps1`; details in [docs/BACKUPS.md](docs/BACKUPS.md).
 
 ## Configuration (`config.json`)
 
@@ -85,6 +90,11 @@ With `Rpcs3Path` configured, runtime data lives under **`RPCS3\PES3\`**:
 | `UseNoGui` | If `true`, passes `--no-gui` to RPCS3 |
 | `DeleteCacheAfterPlay` | If `true` (default), delete decrypt folder when RPCS3 exits |
 | `DumpCachePath` | Leave `""` to use `RPCS3\PES3\cache` |
+| `EnableBackups` | Snapshot game files before cache delete/replace (default `true`) |
+| `BackupSaves` | Include RPCS3 save data for that title in each backup (default `true`) |
+| `BackupOnLaunch` | Backup on every launch, not only ephemeral decrypt (default `false`) |
+| `MaxBackupsPerTitle` | Keep newest N snapshots per title (default `3`) |
+| `BackupPath` | Custom backup root; `""` = `RPCS3\PES3\backups` |
 
 Example:
 
@@ -104,6 +114,7 @@ Example:
 | `DiscRun.ps1` | Watcher + `-Scan` / `-RemoveOnly` for disc events |
 | `Ps3DiscRun.ps1` | Core library (config, paths, retail decrypt) |
 | `Setup.ps1` | `-Config`, `-Startup`, `-RetailDecrypt`, or `-All` |
+| `Backup.ps1` | `-List`, `-Restore`, `-BackupNow` |
 | `Test-Ps3DiscDetection.ps1` | Layout tests |
 | `config.example.json` | Config template |
 | `tools/` | `pes3-disc-dump.exe` (after `-RetailDecrypt` setup) |
@@ -116,8 +127,10 @@ Example:
 
 ## Troubleshooting
 
-- **No prompt:** Ensure `Start-PES3-Disc.bat` is running; open `RPCS3\PES3\logs\disc-run.log`. Increase `ScanDelaySeconds` if the drive is slow to mount.
+- **No prompt:** Ensure `Start-PES3-Disc.bat` is running; open `RPCS3\PES3\logs\disc-run.log`. Increase `ScanDelaySeconds` if the drive is slow to mount (insert events also wait this long before scanning).
 - **Prompt again after eject/re-insert:** Normal; prompt state resets when the volume is ejected.
+- **Temp decrypt deleted too early:** RPCS3 must fully exit; cleanup waits for the launched process plus a short grace period. Close stray `rpcs3.exe` instances if needed.
+- **Duplicate prompts on insert:** Overlapping scans are suppressed for ~12 seconds; if issues persist, restart the watcher.
 - **RPCS3 opens but game does not start:** Verify `EBOOT.BIN` exists on the disc; test manually:  
   `"C:\path\to\rpcs3.exe" "X:\PS3_GAME\USRDIR\EBOOT.BIN"`
 

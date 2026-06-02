@@ -6,11 +6,33 @@ $Script:Root = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $M
 $Script:ConfigPath = Join-Path $Script:Root 'config.json'
 $Script:PromptedVolumesPath = Join-Path $Script:Root 'prompted-volumes.json'
 $Script:LogPath = Join-Path $Script:Root 'disc-run.log'
+$Script:ConfigCache = $null
+$Script:ConfigCacheTime = $null
+$Script:WinFormsLoaded = $false
 
 function Write-Log {
     param([string]$Message)
     $line = '{0:yyyy-MM-dd HH:mm:ss} {1}' -f (Get-Date), $Message
-    try { Add-Content -Path $Script:LogPath -Value $line -Encoding UTF8 } catch { }
+    try {
+        $logDir = Split-Path -LiteralPath $Script:LogPath -Parent
+        if ($logDir -and -not (Test-Path -LiteralPath $logDir)) {
+            New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+        }
+        Add-Content -Path $Script:LogPath -Value $line -Encoding UTF8
+    }
+    catch { }
+}
+
+function Clear-ConfigCache {
+    $Script:ConfigCache = $null
+    $Script:ConfigCacheTime = $null
+}
+
+function Ensure-WinFormsLoaded {
+    if ($Script:WinFormsLoaded) { return }
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    $Script:WinFormsLoaded = $true
 }
 
 function Get-PromptedVolumes {
@@ -39,7 +61,13 @@ function Get-Config {
         return $null
     }
     try {
-        return Get-Content -LiteralPath $Script:ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $mtime = (Get-Item -LiteralPath $Script:ConfigPath).LastWriteTimeUtc
+        if ($Script:ConfigCache -and $Script:ConfigCacheTime -eq $mtime) {
+            return $Script:ConfigCache
+        }
+        $Script:ConfigCache = Get-Content -LiteralPath $Script:ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $Script:ConfigCacheTime = $mtime
+        return $Script:ConfigCache
     }
     catch {
         Write-Log "Failed to read config: $_"
@@ -92,7 +120,7 @@ function Initialize-Pes3DataPaths {
     }
 
     $pes3 = Join-Path $rpcs3Dir 'PES3'
-    foreach ($sub in @('cache', 'logs', 'state', 'temp')) {
+    foreach ($sub in @('cache', 'logs', 'state', 'temp', 'backups')) {
         $p = Join-Path $pes3 $sub
         if (-not (Test-Path -LiteralPath $p)) {
             New-Item -ItemType Directory -Path $p -Force | Out-Null
@@ -103,7 +131,17 @@ function Initialize-Pes3DataPaths {
     $Script:LogPath = Join-Path $pes3 'logs\disc-run.log'
     $Script:PromptedVolumesPath = Join-Path $pes3 'state\prompted-volumes.json'
     $Script:PathsInitialized = $true
+    Remove-StalePes3CleanupJobs
     return $true
+}
+
+function Remove-StalePes3CleanupJobs {
+    $cutoff = (Get-Date).AddDays(-2)
+    Get-ChildItem -LiteralPath $env:TEMP -Filter 'pes3-cleanup-job-*.json' -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -lt $cutoff } |
+        ForEach-Object {
+            Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+        }
 }
 
 function Get-Pes3Root {
@@ -164,21 +202,27 @@ function Register-EphemeralCacheCleanup {
     $dirs = @($CleanupDirs | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Sort-Object -Unique -Descending)
     if ($dirs.Count -eq 0) { return }
 
-    $pathsFile = Join-Path $env:TEMP ("pes3-cleanup-paths-{0}.json" -f [Guid]::NewGuid().ToString('N'))
-    ($dirs | ConvertTo-Json) | Set-Content -LiteralPath $pathsFile -Encoding UTF8
+    $jobFile = Join-Path $env:TEMP ("pes3-cleanup-job-{0}.json" -f [Guid]::NewGuid().ToString('N'))
+    $job = @{
+        ProcessId   = $ProcessId
+        CleanupDirs = $dirs
+        LibraryPath = (Join-Path $Script:Root 'Ps3DiscRun.ps1')
+    }
+    ($job | ConvertTo-Json -Depth 6) | Set-Content -LiteralPath $jobFile -Encoding UTF8
 
-    $pathsFileEscaped = $pathsFile.Replace("'", "''")
+    $jobFileEscaped = $jobFile.Replace("'", "''")
+    $libEscaped = $job.LibraryPath.Replace("'", "''")
     $cleanupCmd = @"
 `$ErrorActionPreference = 'SilentlyContinue'
-Wait-Process -Id $ProcessId -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 4
-`$paths = Get-Content -LiteralPath '$pathsFileEscaped' -Raw -Encoding UTF8 | ConvertFrom-Json
-foreach (`$d in `$paths) {
+. '$libEscaped'
+`$job = Get-Content -LiteralPath '$jobFileEscaped' -Raw -Encoding UTF8 | ConvertFrom-Json
+Wait-Pes3SessionEnd -ProcessId `$job.ProcessId
+foreach (`$d in `$job.CleanupDirs) {
     if (`$d -and (Test-Path -LiteralPath `$d)) {
         Remove-Item -LiteralPath `$d -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
-Remove-Item -LiteralPath '$pathsFileEscaped' -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath '$jobFileEscaped' -Force -ErrorAction SilentlyContinue
 "@
 
     Write-Log "Scheduled cache cleanup after RPCS3 (PID $ProcessId): $($dirs -join '; ')"
@@ -187,8 +231,46 @@ Remove-Item -LiteralPath '$pathsFileEscaped' -Force -ErrorAction SilentlyContinu
     ) | Out-Null
 }
 
+function Wait-Pes3SessionEnd {
+    param(
+        [int]$ProcessId,
+        [int]$GraceSeconds = 6,
+        [int]$MaxWaitHours = 18
+    )
+
+    if ($ProcessId -le 0) {
+        Start-Sleep -Seconds $GraceSeconds
+        return
+    }
+
+    $deadline = (Get-Date).AddHours($MaxWaitHours)
+    try {
+        Wait-Process -Id $ProcessId -ErrorAction Stop
+    }
+    catch {
+        # Process may have already exited before we waited.
+    }
+
+    while ((Get-Date) -lt $deadline) {
+        $alive = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+        if (-not $alive) { break }
+        Start-Sleep -Seconds 2
+    }
+
+    Start-Sleep -Seconds $GraceSeconds
+}
+
 function Remove-EphemeralCacheDirs {
-    param([string[]]$CleanupDirs)
+    param(
+        [string[]]$CleanupDirs,
+        [string]$EbootPath = '',
+        [hashtable]$Game = $null,
+        [switch]$SkipBackup
+    )
+
+    if (-not $SkipBackup -and $EbootPath -and (Test-BackupsEnabled)) {
+        Invoke-Pes3Backup -EbootPath $EbootPath -SourceDirs $CleanupDirs -Game $Game -Reason 'declined_or_cleanup'
+    }
 
     foreach ($dir in ($CleanupDirs | Sort-Object -Unique -Descending)) {
         if (-not $dir -or -not (Test-Path -LiteralPath $dir)) { continue }
@@ -211,38 +293,57 @@ function Get-PathsToCleanupForGame {
     return @($Game.EphemeralCleanupDirs)
 }
 
+# --- Backups (RPCS3/PES3/backups) ---
 
-function Save-Config {
-    param(
-        [string]$Rpcs3Path,
-        [int]$ScanDelaySeconds = 3,
-        [bool]$UseNoGui = $false
-    )
-    $existing = Get-Config
-    $obj = [ordered]@{
-        Rpcs3Path                    = $Rpcs3Path
-        ScanDelaySeconds             = $ScanDelaySeconds
-        UseNoGui                     = $UseNoGui
-        EnableRetailDecrypt          = if ($existing -and $null -ne $existing.EnableRetailDecrypt) { $existing.EnableRetailDecrypt } else { $true }
-        DecryptUnknownOpticalMedia   = if ($existing -and $null -ne $existing.DecryptUnknownOpticalMedia) { $existing.DecryptUnknownOpticalMedia } else { $false }
-        DeleteCacheAfterPlay         = if ($existing -and $null -ne $existing.DeleteCacheAfterPlay) { $existing.DeleteCacheAfterPlay } else { $true }
-        DumpCachePath                = if ($existing -and $existing.DumpCachePath) { $existing.DumpCachePath } else { '' }
-        DumpCliPath                  = if ($existing -and $existing.DumpCliPath) { $existing.DumpCliPath } else { '' }
+function Test-BackupsEnabled {
+    $config = Get-Config
+    if ($config -and $null -ne $config.EnableBackups) {
+        return [bool]$config.EnableBackups
     }
-    ($obj | ConvertTo-Json) | Set-Content -LiteralPath $Script:ConfigPath -Encoding UTF8
-    $Script:PathsInitialized = $false
-    [void](Initialize-Pes3DataPaths)
+    return $true
 }
 
-function Read-ParamSfoTitle {
-    param([string]$SfoPath)
+function Test-BackupSaves {
+    $config = Get-Config
+    if ($config -and $null -ne $config.BackupSaves) {
+        return [bool]$config.BackupSaves
+    }
+    return $true
+}
+
+function Get-MaxBackupsPerTitle {
+    $config = Get-Config
+    if ($config -and $config.MaxBackupsPerTitle) {
+        return [Math]::Max(1, [int]$config.MaxBackupsPerTitle)
+    }
+    return 3
+}
+
+function Get-BackupRoot {
+    $config = Get-Config
+    if ($config -and $config.BackupPath -and ($config.BackupPath.ToString().Trim().Length -gt 0)) {
+        $custom = $config.BackupPath.ToString().Trim()
+        if (-not (Test-Path -LiteralPath $custom)) {
+            New-Item -ItemType Directory -Path $custom -Force | Out-Null
+        }
+        return $custom
+    }
+    if (Initialize-Pes3DataPaths) {
+        return (Join-Path $Script:Pes3Root 'backups')
+    }
+    return (Join-Path $env:LOCALAPPDATA 'PES3-Disc\backups')
+}
+
+function Read-ParamSfoValue {
+    param(
+        [string]$SfoPath,
+        [string]$KeyName
+    )
     if (-not (Test-Path -LiteralPath $SfoPath)) { return $null }
 
     try {
         $bytes = [System.IO.File]::ReadAllBytes($SfoPath)
         if ($bytes.Length -lt 20) { return $null }
-
-        # SFO magic is 0x00 'P' 'S' 'F'
         if ($bytes[0] -ne 0 -or $bytes[1] -ne 0x50 -or $bytes[2] -ne 0x53 -or $bytes[3] -ne 0x46) {
             return $null
         }
@@ -261,14 +362,13 @@ function Read-ParamSfoTitle {
 
             $nameEnd = $nameOff
             while ($nameEnd -lt $bytes.Length -and $bytes[$nameEnd] -ne 0) { $nameEnd++ }
-            $keyName = [System.Text.Encoding]::ASCII.GetString($bytes, $nameOff, $nameEnd - $nameOff)
+            $key = [System.Text.Encoding]::ASCII.GetString($bytes, $nameOff, $nameEnd - $nameOff)
 
-            if ($keyName -eq 'TITLE') {
+            if ($key -eq $KeyName) {
                 $absOff = $dataTableOff + $dataOff
                 if ($absOff + $dataLen -gt $bytes.Length) { return $null }
                 $raw = $bytes[$absOff..($absOff + $dataLen - 1)]
-                $text = [System.Text.Encoding]::UTF8.GetString($raw).Trim([char]0)
-                if ($text) { return $text }
+                return [System.Text.Encoding]::UTF8.GetString($raw).Trim([char]0)
             }
         }
     }
@@ -276,6 +376,429 @@ function Read-ParamSfoTitle {
         Write-Log "PARAM.SFO read failed ($SfoPath): $_"
     }
     return $null
+}
+
+function Read-ParamSfoFields {
+    param([string]$SfoPath)
+
+    $result = @{ TITLE_ID = $null; TITLE = $null }
+    if (-not (Test-Path -LiteralPath $SfoPath)) { return $result }
+
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($SfoPath)
+        if ($bytes.Length -lt 20) { return $result }
+        if ($bytes[0] -ne 0 -or $bytes[1] -ne 0x50 -or $bytes[2] -ne 0x53 -or $bytes[3] -ne 0x46) {
+            return $result
+        }
+
+        $keyCount = [BitConverter]::ToUInt32($bytes, 8)
+        $keyTableOff = [BitConverter]::ToUInt32($bytes, 12)
+        $dataTableOff = [BitConverter]::ToUInt32($bytes, 16)
+
+        for ($i = 0; $i -lt $keyCount; $i++) {
+            $entryOff = $keyTableOff + ($i * 16)
+            if ($entryOff + 16 -gt $bytes.Length) { break }
+
+            $nameOff = [BitConverter]::ToUInt16($bytes, $entryOff)
+            $dataLen = [BitConverter]::ToUInt32($bytes, $entryOff + 4)
+            $dataOff = [BitConverter]::ToUInt32($bytes, $entryOff + 12)
+
+            $nameEnd = $nameOff
+            while ($nameEnd -lt $bytes.Length -and $bytes[$nameEnd] -ne 0) { $nameEnd++ }
+            $key = [System.Text.Encoding]::ASCII.GetString($bytes, $nameOff, $nameEnd - $nameOff)
+
+            if ($key -eq 'TITLE_ID' -or $key -eq 'TITLE') {
+                $absOff = $dataTableOff + $dataOff
+                if ($absOff + $dataLen -le $bytes.Length) {
+                    $raw = $bytes[$absOff..($absOff + $dataLen - 1)]
+                    $text = [System.Text.Encoding]::UTF8.GetString($raw).Trim([char]0)
+                    if ($text) { $result[$key] = $text }
+                }
+            }
+            if ($result.TITLE_ID -and $result.TITLE) { break }
+        }
+    }
+    catch {
+        Write-Log "PARAM.SFO read failed ($SfoPath): $_"
+    }
+    return $result
+}
+
+function Get-GameMetadataFromEboot {
+    param([string]$EbootPath)
+
+    if (-not $EbootPath -or -not (Test-Path -LiteralPath $EbootPath)) {
+        return @{ TitleId = 'UNKNOWN'; Title = 'PS3 game'; GameRoot = $null; SfoPath = $null }
+    }
+
+    $ps3Game = Split-Path (Split-Path $EbootPath -Parent) -Parent
+    $gameRoot = Split-Path $ps3Game -Parent
+    $sfo = Join-Path $ps3Game 'PARAM.SFO'
+    $sfoFields = Read-ParamSfoFields -SfoPath $sfo
+    $titleId = $sfoFields.TITLE_ID
+    $title = $sfoFields.TITLE
+
+    if (-not $titleId) {
+        $titleId = Split-Path $gameRoot -Leaf
+    }
+    if (-not $title) {
+        $title = $titleId
+    }
+
+    $safeId = ($titleId -replace '[\\/:*?"<>|]', '_').Trim()
+    if (-not $safeId) { $safeId = 'UNKNOWN' }
+
+    return @{
+        TitleId  = $safeId
+        Title    = $title
+        GameRoot = $gameRoot
+        SfoPath  = $sfo
+    }
+}
+
+function Copy-DirectoryTree {
+    param(
+        [string]$Source,
+        [string]$Destination
+    )
+
+    if (-not (Test-Path -LiteralPath $Source)) { return $false }
+    if (-not (Test-Path -LiteralPath $Destination)) {
+        New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    }
+
+    if (Get-Command robocopy -ErrorAction SilentlyContinue) {
+        $null = robocopy $Source $Destination /E /COPY:DAT /R:2 /W:2 /NFL /NDL /NJH /NJS /nc /ns /np 2>&1
+        # Robocopy: 0-7 = success or acceptable (extra files, etc.)
+        if ($LASTEXITCODE -ge 8) {
+            Write-Log "robocopy failed ($Source -> $Destination) exit $LASTEXITCODE"
+            return $false
+        }
+        return $true
+    }
+
+    try {
+        Copy-Item -LiteralPath (Join-Path $Source '*') -Destination $Destination -Recurse -Force -ErrorAction Stop
+        return $true
+    }
+    catch {
+        Write-Log "Copy-Item failed ($Source): $_"
+        return $false
+    }
+}
+
+function Get-FileSha256 {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+}
+
+function Resolve-GameRootsToBackup {
+    param([string[]]$SourceDirs)
+
+    $roots = @()
+    foreach ($dir in $SourceDirs) {
+        if (-not $dir -or -not (Test-Path -LiteralPath $dir)) { continue }
+        $literal = (Resolve-Path -LiteralPath $dir).Path
+        if (Test-Path -LiteralPath (Join-Path $literal 'PS3_GAME')) {
+            $roots += $literal
+            continue
+        }
+        if ((Split-Path $literal -Leaf) -eq 'PS3_GAME') {
+            $roots += (Split-Path $literal -Parent)
+            continue
+        }
+        $roots += $literal
+    }
+    return @($roots | Select-Object -Unique)
+}
+
+function Remove-OldBackupsForTitle {
+    param([string]$TitleId)
+
+    $titleDir = Join-Path (Get-BackupRoot) $TitleId
+    if (-not (Test-Path -LiteralPath $titleDir)) { return }
+
+    $keep = Get-MaxBackupsPerTitle
+    $existing = Get-ChildItem -LiteralPath $titleDir -Directory | Sort-Object Name -Descending
+    foreach ($old in $existing | Select-Object -Skip $keep) {
+        try {
+            Remove-Item -LiteralPath $old.FullName -Recurse -Force -ErrorAction Stop
+            Write-Log "Pruned old backup: $($old.FullName)"
+        }
+        catch {
+            Write-Log "Failed to prune backup $($old.FullName): $_"
+        }
+    }
+}
+
+function Test-RecentBackupExists {
+    param(
+        [string]$TitleId,
+        [string]$Reason,
+        [int]$WindowSeconds = 120
+    )
+
+    if (-not $TitleId) { return $false }
+    $titleDir = Join-Path (Get-BackupRoot) $TitleId
+    if (-not (Test-Path -LiteralPath $titleDir)) { return $false }
+
+    $latest = Get-ChildItem -LiteralPath $titleDir -Directory -ErrorAction SilentlyContinue |
+        Sort-Object Name -Descending |
+        Select-Object -First 1
+    if (-not $latest) { return $false }
+
+    $manifestPath = Join-Path $latest.FullName 'manifest.json'
+    if (-not (Test-Path -LiteralPath $manifestPath)) { return $false }
+
+    try {
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($manifest.reason -ne $Reason) { return $false }
+        $created = [datetime]::Parse($manifest.created)
+        return ((Get-Date) - $created).TotalSeconds -lt $WindowSeconds
+    }
+    catch {
+        return $false
+    }
+}
+
+function Invoke-Pes3Backup {
+    param(
+        [string]$EbootPath,
+        [string[]]$SourceDirs = @(),
+        [hashtable]$Game = $null,
+        [string]$Reason = 'manual'
+    )
+
+    if (-not (Test-BackupsEnabled)) { return $null }
+    if (-not $EbootPath) { return $null }
+
+    [void](Initialize-Pes3DataPaths)
+
+    $meta = Get-GameMetadataFromEboot -EbootPath $EbootPath
+    if ((Test-RecentBackupExists -TitleId $meta.TitleId -Reason $Reason)) {
+        Write-Log "Backup skipped (recent $Reason snapshot for $($meta.TitleId))"
+        $titleDir = Join-Path (Get-BackupRoot) $meta.TitleId
+        $latest = Get-ChildItem -LiteralPath $titleDir -Directory -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+        return if ($latest) { $latest.FullName } else { $null }
+    }
+    $roots = Resolve-GameRootsToBackup -SourceDirs $SourceDirs
+    if ($meta.GameRoot -and ($roots -notcontains $meta.GameRoot)) {
+        $roots = @($meta.GameRoot) + $roots
+    }
+    $roots = @($roots | Select-Object -Unique)
+    if ($roots.Count -eq 0) { return $null }
+
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $backupDir = Join-Path (Join-Path (Get-BackupRoot) $meta.TitleId) $stamp
+    $gameBackupDir = Join-Path $backupDir 'game'
+    New-Item -ItemType Directory -Path $gameBackupDir -Force | Out-Null
+
+    $copiedRoots = @()
+    foreach ($root in $roots) {
+        $leaf = Split-Path $root -Leaf
+        $dest = Join-Path $gameBackupDir $leaf
+        if (Copy-DirectoryTree -Source $root -Destination $dest) {
+            $copiedRoots += $root
+        }
+    }
+
+    if ($copiedRoots.Count -eq 0) {
+        Write-Log "Backup failed: no files copied for $($meta.TitleId)"
+        return $null
+    }
+
+    $ebootInBackup = $null
+    foreach ($root in $copiedRoots) {
+        $leaf = Split-Path $root -Leaf
+        $candidate = Join-Path (Join-Path $gameBackupDir $leaf) 'PS3_GAME\USRDIR\EBOOT.BIN'
+        if (Test-Path -LiteralPath $candidate) {
+            $ebootInBackup = Get-Item -LiteralPath $candidate
+            break
+        }
+    }
+    if (-not $ebootInBackup) {
+        $ebootInBackup = Get-ChildItem -LiteralPath $gameBackupDir -Recurse -File -Filter 'EBOOT.BIN' -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+    }
+    $fileCount = -1
+    try {
+        $fileCount = (Get-ChildItem -LiteralPath $gameBackupDir -Recurse -File -ErrorAction Stop | Measure-Object).Count
+    }
+    catch {
+        Write-Log "Backup file count skipped for $($meta.TitleId): $_"
+    }
+
+    $savedataBackedUp = $false
+    if ((Test-BackupSaves) -and $meta.TitleId -ne 'UNKNOWN') {
+        $rpcs3Dir = Get-Rpcs3InstallDir
+        $saveSrc = if ($rpcs3Dir) { Join-Path $rpcs3Dir "dev_hdd0\savedata\$($meta.TitleId)" } else { $null }
+        if ($saveSrc -and (Test-Path -LiteralPath $saveSrc)) {
+            $saveDest = Join-Path $backupDir 'savedata'
+            $savedataBackedUp = Copy-DirectoryTree -Source $saveSrc -Destination $saveDest
+        }
+    }
+
+    $manifest = [ordered]@{
+        created       = (Get-Date).ToString('o')
+        reason        = $Reason
+        titleId       = $meta.TitleId
+        title         = $meta.Title
+        ebootPath     = $EbootPath
+        sourceRoots   = $copiedRoots
+        fileCount     = $fileCount
+        ebootSha256   = if ($ebootInBackup) { Get-FileSha256 -Path $ebootInBackup.FullName } else { $null }
+        includesSaves = $savedataBackedUp
+    }
+    ($manifest | ConvertTo-Json -Depth 5) | Set-Content -LiteralPath (Join-Path $backupDir 'manifest.json') -Encoding UTF8
+
+    Remove-OldBackupsForTitle -TitleId $meta.TitleId
+    Write-Log "Backup created: $backupDir ($($meta.TitleId), $fileCount files, saves=$savedataBackedUp)"
+    return $backupDir
+}
+
+function Get-Pes3BackupList {
+    param([string]$TitleId = '')
+
+    $root = Get-BackupRoot
+    if (-not (Test-Path -LiteralPath $root)) { return @() }
+
+    $results = @()
+    $titleDirs = if ($TitleId) {
+        @(Get-Item -LiteralPath (Join-Path $root $TitleId) -ErrorAction SilentlyContinue)
+    }
+    else {
+        Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue
+    }
+
+    foreach ($td in $titleDirs) {
+        if (-not $td) { continue }
+        foreach ($snap in Get-ChildItem -LiteralPath $td.FullName -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending) {
+            $manifestPath = Join-Path $snap.FullName 'manifest.json'
+            $manifest = $null
+            if (Test-Path -LiteralPath $manifestPath) {
+                try { $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch { }
+            }
+            $results += [PSCustomObject]@{
+                TitleId   = $td.Name
+                Snapshot  = $snap.Name
+                Path      = $snap.FullName
+                Created   = if ($manifest.created) { $manifest.created } else { $snap.Name }
+                Title     = if ($manifest.title) { $manifest.title } else { '' }
+                FileCount = if ($manifest.fileCount) { $manifest.fileCount } else { 0 }
+                HasSaves  = if ($manifest.includesSaves) { $manifest.includesSaves } else { $false }
+            }
+        }
+    }
+    return $results
+}
+
+function Restore-Pes3Backup {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BackupSnapshotPath,
+        [string]$RestoreGameTo = '',
+        [switch]$RestoreSaves
+    )
+
+    if (-not (Test-Path -LiteralPath $BackupSnapshotPath)) {
+        throw "Backup not found: $BackupSnapshotPath"
+    }
+
+    $manifestPath = Join-Path $BackupSnapshotPath 'manifest.json'
+    $manifest = $null
+    if (Test-Path -LiteralPath $manifestPath) {
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    }
+
+    $gameSrc = Join-Path $BackupSnapshotPath 'game'
+    if (-not (Test-Path -LiteralPath $gameSrc)) {
+        throw 'Backup is missing game/ folder.'
+    }
+
+    if (-not $RestoreGameTo) {
+        if ($manifest -and $manifest.titleId) {
+            $RestoreGameTo = Join-Path (Get-DumpCacheRoot) $manifest.titleId
+        }
+        else {
+            $RestoreGameTo = Join-Path (Get-DumpCacheRoot) ('restored-' + (Split-Path $BackupSnapshotPath -Leaf))
+        }
+    }
+
+    if (Test-Path -LiteralPath $RestoreGameTo) {
+        $archive = "$RestoreGameTo.before-restore.{0}" -f (Get-Date -Format 'yyyyMMdd-HHmmss')
+        Move-Item -LiteralPath $RestoreGameTo -Destination $archive -Force -ErrorAction SilentlyContinue
+    }
+    New-Item -ItemType Directory -Path $RestoreGameTo -Force | Out-Null
+
+    $children = Get-ChildItem -LiteralPath $gameSrc -ErrorAction SilentlyContinue
+    if ($children.Count -eq 1 -and $children[0].PSIsContainer) {
+        Copy-DirectoryTree -Source $children[0].FullName -Destination $RestoreGameTo | Out-Null
+    }
+    else {
+        Copy-DirectoryTree -Source $gameSrc -Destination $RestoreGameTo | Out-Null
+    }
+
+    if ($RestoreSaves -and $manifest -and $manifest.titleId) {
+        $saveSrc = Join-Path $BackupSnapshotPath 'savedata'
+        if (Test-Path -LiteralPath $saveSrc) {
+            $rpcs3Dir = Get-Rpcs3InstallDir
+            if ($rpcs3Dir) {
+                $saveDest = Join-Path $rpcs3Dir "dev_hdd0\savedata\$($manifest.titleId)"
+                if (Test-Path -LiteralPath $saveDest) {
+                    $saveArchive = "$saveDest.before-restore.{0}" -f (Get-Date -Format 'yyyyMMdd-HHmmss')
+                    Move-Item -LiteralPath $saveDest -Destination $saveArchive -Force -ErrorAction SilentlyContinue
+                }
+                Copy-DirectoryTree -Source $saveSrc -Destination $saveDest | Out-Null
+            }
+        }
+    }
+
+    Write-Log "Restored backup to $RestoreGameTo (saves=$RestoreSaves)"
+    return $RestoreGameTo
+}
+
+function Save-Config {
+    param(
+        [string]$Rpcs3Path,
+        [int]$ScanDelaySeconds = 3,
+        [bool]$UseNoGui = $false
+    )
+    $existing = Get-Config
+    $obj = [ordered]@{
+        Rpcs3Path                    = $Rpcs3Path
+        ScanDelaySeconds             = $ScanDelaySeconds
+        UseNoGui                     = $UseNoGui
+        EnableRetailDecrypt          = if ($existing -and $null -ne $existing.EnableRetailDecrypt) { $existing.EnableRetailDecrypt } else { $true }
+        DecryptUnknownOpticalMedia   = if ($existing -and $null -ne $existing.DecryptUnknownOpticalMedia) { $existing.DecryptUnknownOpticalMedia } else { $false }
+        DeleteCacheAfterPlay         = if ($existing -and $null -ne $existing.DeleteCacheAfterPlay) { $existing.DeleteCacheAfterPlay } else { $true }
+        DumpCachePath                = if ($existing -and $existing.DumpCachePath) { $existing.DumpCachePath } else { '' }
+        DumpCliPath                  = if ($existing -and $existing.DumpCliPath) { $existing.DumpCliPath } else { '' }
+        EnableBackups                = if ($existing -and $null -ne $existing.EnableBackups) { $existing.EnableBackups } else { $true }
+        BackupSaves                  = if ($existing -and $null -ne $existing.BackupSaves) { $existing.BackupSaves } else { $true }
+        BackupOnLaunch               = if ($existing -and $null -ne $existing.BackupOnLaunch) { $existing.BackupOnLaunch } else { $false }
+        MaxBackupsPerTitle           = if ($existing -and $existing.MaxBackupsPerTitle) { [int]$existing.MaxBackupsPerTitle } else { 3 }
+        BackupPath                   = if ($existing -and $existing.BackupPath) { $existing.BackupPath } else { '' }
+    }
+    ($obj | ConvertTo-Json -Depth 4) | Set-Content -LiteralPath $Script:ConfigPath -Encoding UTF8
+    Clear-ConfigCache
+    $Script:PathsInitialized = $false
+    [void](Initialize-Pes3DataPaths)
+}
+
+function Read-ParamSfoTitle {
+    param([string]$SfoPath)
+    return Read-ParamSfoValue -SfoPath $SfoPath -KeyName 'TITLE'
+}
+
+function Test-BackupOnLaunch {
+    $config = Get-Config
+    if ($config -and $null -ne $config.BackupOnLaunch) {
+        return [bool]$config.BackupOnLaunch
+    }
+    return $false
 }
 
 function Test-PathEboot {
@@ -323,7 +846,8 @@ function Find-Ps3GameOnDrive {
     }
 
     try {
-        foreach ($dir in Get-ChildItem -LiteralPath $DriveRoot -Directory -ErrorAction SilentlyContinue) {
+        $subdirs = @(Get-ChildItem -LiteralPath $DriveRoot -Directory -ErrorAction SilentlyContinue | Select-Object -First 48)
+        foreach ($dir in $subdirs) {
             $eboot = Test-PathEboot -Path (Join-Path $dir.FullName 'PS3_GAME\USRDIR\EBOOT.BIN')
             if ($eboot) {
                 return Get-Ps3GameFromEbootPath -EbootPath $eboot
@@ -340,9 +864,16 @@ function Test-EncryptedPs3Eboot {
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path)) { return $false }
     try {
-        $bytes = [IO.File]::ReadAllBytes($Path)
-        if ($bytes.Length -lt 7) { return $false }
-        return ($bytes[0] -eq 0x53 -and $bytes[1] -eq 0x43 -and $bytes[2] -eq 0x45 -and $bytes[6] -eq 2)
+        $buf = New-Object byte[] 7
+        $fs = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        try {
+            $read = $fs.Read($buf, 0, 7)
+            if ($read -lt 7) { return $false }
+        }
+        finally {
+            $fs.Dispose()
+        }
+        return ($buf[0] -eq 0x53 -and $buf[1] -eq 0x43 -and $buf[2] -eq 0x45 -and $buf[6] -eq 2)
     }
     catch {
         return $false
@@ -382,18 +913,19 @@ function Get-Ps3DiscVolumeStatus {
         }
     }
 
-    if ($hasParam -or $hasSfb) {
+    $ps3GameDir = Join-Path $DriveRoot 'PS3_GAME'
+    if ((Test-Path -LiteralPath $ps3GameDir) -and -not $ebootPath) {
         return @{
-            Kind    = 'EncryptedRetail'
-            Message = 'Retail PS3 disc structure detected (encrypted or partial mount).'
+            Kind    = 'IncompleteBurn'
+            Message = 'PS3_GAME folder present but EBOOT.BIN is missing or unreadable.'
             Game    = $null
         }
     }
 
-    if ($hasSfb) {
+    if ($hasParam -or $hasSfb) {
         return @{
-            Kind    = 'IncompleteBurn'
-            Message = 'PS3_DISC.SFB found but PS3_GAME\USRDIR\EBOOT.BIN is missing.'
+            Kind    = 'EncryptedRetail'
+            Message = 'Retail PS3 disc structure detected (encrypted or partial mount).'
             Game    = $null
         }
     }
@@ -407,6 +939,28 @@ function Get-Ps3DiscVolumeStatus {
 
 function Get-OpticalDrives {
     $drives = @()
+    try {
+        $disks = Get-CimInstance -ClassName Win32_LogicalDisk -Filter 'DriveType=5' -ErrorAction Stop
+        foreach ($disk in $disks) {
+            if (-not $disk.DeviceID -or -not $disk.FileSystem -or $disk.Size -le 0) { continue }
+            $letter = $disk.DeviceID.Substring(0, 1)
+            $root = '{0}:\' -f $letter
+            $id = if ($disk.VolumeSerialNumber) {
+                "$letter|$($disk.VolumeSerialNumber)"
+            }
+            else {
+                "$letter|$($disk.VolumeName)"
+            }
+            $drives += @{
+                Letter = [char]$letter
+                Root   = $root
+                Id     = $id
+            }
+        }
+        if ($drives.Count -gt 0) { return $drives }
+    }
+    catch { }
+
     foreach ($letter in [char[]](65..90)) {
         $root = '{0}:\' -f $letter
         if (-not (Test-Path -LiteralPath $root)) { continue }
@@ -431,8 +985,16 @@ function Start-Rpcs3Game {
         [string]$Rpcs3Path,
         [string]$EbootPath,
         [bool]$UseNoGui,
-        [string[]]$EphemeralCleanupDirs = @()
+        [string[]]$EphemeralCleanupDirs = @(),
+        [hashtable]$Game = $null
     )
+
+    $shouldBackup = (Test-BackupsEnabled) -and (
+        ($EphemeralCleanupDirs -and $EphemeralCleanupDirs.Count -gt 0) -or (Test-BackupOnLaunch)
+    )
+    if ($shouldBackup) {
+        Invoke-Pes3Backup -EbootPath $EbootPath -SourceDirs $EphemeralCleanupDirs -Game $Game -Reason 'before_play' | Out-Null
+    }
 
     $argList = @()
     if ($UseNoGui) { $argList += '--no-gui' }
@@ -460,7 +1022,7 @@ function Invoke-DiscPrompt {
     }
     $PromptedVolumes[$Drive.Id] = $true
 
-    Add-Type -AssemblyName System.Windows.Forms
+    Ensure-WinFormsLoaded
 
     $config = Get-Config
     $rpcs3 = if ($config) { $config.Rpcs3Path } else { $null }
@@ -512,12 +1074,12 @@ Run this game in RPCS3 now?
         if ($config -and $null -ne $config.UseNoGui) {
             $useNoGui = [bool]$config.UseNoGui
         }
-        Start-Rpcs3Game -Rpcs3Path $rpcs3 -EbootPath $Game.Eboot -UseNoGui $useNoGui -EphemeralCleanupDirs $cleanupDirs
+        Start-Rpcs3Game -Rpcs3Path $rpcs3 -EbootPath $Game.Eboot -UseNoGui $useNoGui -EphemeralCleanupDirs $cleanupDirs -Game $Game
     }
     else {
         Write-Log "User declined: $($Game.Eboot)"
         if ($cleanupDirs.Count -gt 0) {
-            Remove-EphemeralCacheDirs -CleanupDirs $cleanupDirs
+            Remove-EphemeralCacheDirs -CleanupDirs $cleanupDirs -EbootPath $Game.Eboot -Game $Game
         }
     }
 
@@ -561,8 +1123,9 @@ function Get-CachedRetailDump {
         $search += Join-Path $cacheRoot $ProductCode
     }
     if ($VolumeId) {
-        $safe = ($VolumeId -replace '[\\/:*?"<>|]', '_').Substring(0, [Math]::Min(64, ($VolumeId -replace '[\\/:*?"<>|]', '_').Length))
-        $search += Join-Path $cacheRoot $safe
+        $safe = ($VolumeId -replace '[\\/:*?"<>|]', '_').Trim()
+        if ($safe.Length -gt 64) { $safe = $safe.Substring(0, 64) }
+        if ($safe) { $search += Join-Path $cacheRoot $safe }
     }
 
     foreach ($dir in $search) {
@@ -593,8 +1156,7 @@ function Show-DecryptProgressForm {
         [scriptblock]$OnCancel
     )
 
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
+    Ensure-WinFormsLoaded
 
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'PES3-Disc - Decrypting'
@@ -683,9 +1245,9 @@ Retail disc decryption is not set up yet.
 Run Setup.ps1 -RetailDecrypt once to build the decryptor, or set DumpCliPath in config.json.
 
 You need:
-â€¢ .NET 10 SDK (to build) or a pre-built pes3-disc-dump.exe in tools\
-â€¢ A compatible Blu-ray drive (see RPCS3 quickstart)
-â€¢ Enough free disk space for the full game
+- .NET 10 SDK (to build) or a pre-built pes3-disc-dump.exe in tools\
+- A compatible Blu-ray drive (see RPCS3 quickstart)
+- Enough free disk space for the full game
 "@,
             'PES3-Disc',
             [System.Windows.Forms.MessageBoxButtons]::OK,
@@ -711,16 +1273,16 @@ You need:
         ''
     }
 
-    Add-Type -AssemblyName System.Windows.Forms
+    Ensure-WinFormsLoaded
     $confirm = [System.Windows.Forms.MessageBox]::Show(
         @"
 A retail PS3 disc was detected on drive $($Drive.Letter):.
 
 PES3-Disc can decrypt it and launch RPCS3. This requires:
-â€¢ A compatible Blu-ray drive (MediaTek chipset - see RPCS3 quickstart)
-â€¢ PS3_DISC.SFB visible on the disc in Windows (many official discs show at least this)
-â€¢ An IRD key in the online databases (same as PS3 Disc Dumper)
-â€¢ Tens of GB free space and a long wait (30-90+ min)$pes3Note$ephemeralNote
+- A compatible Blu-ray drive (MediaTek chipset - see RPCS3 quickstart)
+- PS3_DISC.SFB visible on the disc in Windows (many official discs show at least this)
+- An IRD key in the online databases (same as PS3 Disc Dumper)
+- Tens of GB free space and a long wait (30-90+ min)$pes3Note$ephemeralNote
 
 Decrypt and play now?
 "@,
@@ -749,6 +1311,7 @@ Decrypt and play now?
     $ui.SetProgressFile.Invoke($progressFile)
 
     $stdoutFile = Join-Path $env:TEMP ("pes3-disc-stdout-{0}.txt" -f [Guid]::NewGuid().ToString('N'))
+    $stderrFile = Join-Path $env:TEMP ("pes3-disc-stderr-{0}.txt" -f [Guid]::NewGuid().ToString('N'))
     $argList = @(
         '--output', "`"$sessionDir`"",
         '--drive', $Drive.Letter,
@@ -758,18 +1321,19 @@ Decrypt and play now?
     $proc = Start-Process -FilePath $dumpCli `
         -ArgumentList $argList `
         -RedirectStandardOutput $stdoutFile `
-        -RedirectStandardError (Join-Path $env:TEMP 'pes3-disc-stderr.txt') `
+        -RedirectStandardError $stderrFile `
         -NoNewWindow -PassThru
 
     [System.Windows.Forms.Application]::EnableVisualStyles()
     $ui.Form.Show()
     $ui.Timer.Start()
-    $cancelRequested = $false
+    $script:RetailDecryptCancelled = $false
+    $script:RetailDecryptProc = $proc
     $ui.Form.Add_FormClosing({
         param($sender, $e)
-        if ($proc -and -not $proc.HasExited) {
-            $cancelRequested = $true
-            try { $proc.Kill() } catch { }
+        if ($script:RetailDecryptProc -and -not $script:RetailDecryptProc.HasExited) {
+            $script:RetailDecryptCancelled = $true
+            try { $script:RetailDecryptProc.Kill() } catch { }
         }
     })
 
@@ -788,10 +1352,11 @@ Decrypt and play now?
         Remove-Item -LiteralPath $stdoutFile -Force -ErrorAction SilentlyContinue
     }
     Remove-Item -LiteralPath $progressFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $stderrFile -Force -ErrorAction SilentlyContinue
 
-    if ($cancelRequested) {
+    if ($script:RetailDecryptCancelled) {
         Write-Log 'Retail decrypt cancelled by user'
-        if ($ephemeral) { Remove-EphemeralCacheDirs -CleanupDirs @($sessionDir) }
+        if ($ephemeral) { Remove-EphemeralCacheDirs -CleanupDirs @($sessionDir) -SkipBackup }
         return $PromptedVolumes
     }
 
@@ -811,7 +1376,7 @@ Decrypt and play now?
             }
         }
         Write-Log "Retail decrypt failed (exit $exitCode): $msg"
-        if ($ephemeral) { Remove-EphemeralCacheDirs -CleanupDirs @($sessionDir) }
+        if ($ephemeral) { Remove-EphemeralCacheDirs -CleanupDirs @($sessionDir) -SkipBackup }
         [void][System.Windows.Forms.MessageBox]::Show(
             "$msg`n`nSee disc-run.log. Ensure your drive is on the RPCS3 compatible list and the game has a known IRD key.",
             'PES3-Disc',
@@ -830,7 +1395,7 @@ Decrypt and play now?
 
     if (-not $dumpResult -or -not $dumpResult.Eboot) {
         if ($ephemeral) {
-            Remove-EphemeralCacheDirs -CleanupDirs @($sessionDir)
+            Remove-EphemeralCacheDirs -CleanupDirs @($sessionDir) -SkipBackup
         }
         $cached = Get-CachedRetailDump -VolumeId $Drive.Id -ProductCode $null
         if (-not $cached) {
@@ -848,6 +1413,10 @@ Decrypt and play now?
             $finalCache = Join-Path $cacheRoot $dumpResult.ProductCode
             if (Test-Path -LiteralPath $gameRoot) {
                 if (Test-Path -LiteralPath $finalCache) {
+                    $oldEboot = Join-Path $finalCache 'PS3_GAME\USRDIR\EBOOT.BIN'
+                    if ((Test-BackupsEnabled) -and (Test-Path -LiteralPath $oldEboot)) {
+                        Invoke-Pes3Backup -EbootPath $oldEboot -SourceDirs @($finalCache) -Reason 'before_cache_replace' | Out-Null
+                    }
                     Remove-Item -LiteralPath $finalCache -Recurse -Force -ErrorAction SilentlyContinue
                 }
                 Move-Item -LiteralPath $gameRoot -Destination $finalCache -ErrorAction SilentlyContinue
@@ -944,6 +1513,15 @@ function Update-DiscScan {
         }
     }
 
-    Set-PromptedVolumes -Volumes $prompted
+    $previous = Get-PromptedVolumes
+    $changed = ($previous.Keys.Count -ne $prompted.Keys.Count)
+    if (-not $changed) {
+        foreach ($key in $prompted.Keys) {
+            if (-not $previous.ContainsKey($key)) { $changed = $true; break }
+        }
+    }
+    if ($changed) {
+        Set-PromptedVolumes -Volumes $prompted
+    }
 }
 

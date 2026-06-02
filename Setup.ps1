@@ -14,8 +14,8 @@ if (-not $Config -and -not $Startup -and -not $RetailDecrypt -and -not $All) {
 }
 
 function Invoke-Pes3ConfigSetup {
-    Add-Type -AssemblyName System.Windows.Forms
     . (Join-Path $scriptDir 'Ps3DiscRun.ps1')
+    Ensure-WinFormsLoaded
 
     $config = Get-Config
     $current = if ($config) { $config.Rpcs3Path } else { '' }

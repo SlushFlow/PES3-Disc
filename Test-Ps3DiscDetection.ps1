@@ -111,6 +111,19 @@ try {
         $passed++
     }
 
+    $incomplete = Join-Path $testRoot 'incomplete-ps3-game'
+    New-Item -ItemType Directory -Path (Join-Path $incomplete 'PS3_GAME\USRDIR') -Force | Out-Null
+    Set-Content -Path (Join-Path $incomplete 'PS3_GAME\PARAM.SFO') -Value 'x' -NoNewline
+    $statusIncomplete = Get-Ps3DiscVolumeStatus -DriveRoot $incomplete
+    if ($statusIncomplete.Kind -ne 'IncompleteBurn') {
+        Write-Host "FAIL: PS3_GAME without EBOOT should be IncompleteBurn, got $($statusIncomplete.Kind)" -ForegroundColor Red
+        $failures++
+    }
+    else {
+        Write-Host 'PASS: PS3_GAME without EBOOT = IncompleteBurn' -ForegroundColor Green
+        $passed++
+    }
+
     $statusMarker = Get-Ps3DiscVolumeStatus -DriveRoot $markerOnly
     if ($statusMarker.Kind -ne 'EncryptedRetail') {
         Write-Host "FAIL: marker-only should be EncryptedRetail, got $($statusMarker.Kind)" -ForegroundColor Red
@@ -133,6 +146,42 @@ try {
         Write-Host "PASS: encrypted EBOOT = EncryptedRetail" -ForegroundColor Green
         $passed++
     }
+
+    # Backup: metadata + snapshot under isolated BackupPath
+    $backupGame = Join-Path $testRoot 'backup-test'
+    New-Item -ItemType Directory -Path $backupGame -Force | Out-Null
+    New-MinimalPs3Game -Ps3GameDir (Join-Path $backupGame 'PS3_GAME')
+    $eboot = Join-Path $backupGame 'PS3_GAME\USRDIR\EBOOT.BIN'
+    $testConfigPath = Join-Path $testRoot 'config.json'
+    @{
+        EnableBackups     = $true
+        BackupSaves       = $false
+        BackupPath        = (Join-Path $testRoot 'backups')
+        MaxBackupsPerTitle = 2
+    } | ConvertTo-Json | Set-Content -LiteralPath $testConfigPath -Encoding UTF8
+    $origConfigPath = $Script:ConfigPath
+    $Script:ConfigPath = $testConfigPath
+    $Script:PathsInitialized = $false
+
+    $snap = Invoke-Pes3Backup -EbootPath $eboot -SourceDirs @($backupGame) -Reason 'test'
+    if (-not $snap -or -not (Test-Path -LiteralPath (Join-Path $snap 'manifest.json'))) {
+        Write-Host 'FAIL: Invoke-Pes3Backup did not create manifest' -ForegroundColor Red
+        $failures++
+    }
+    else {
+        $listed = @(Get-Pes3BackupList)
+        if ($listed.Count -lt 1) {
+            Write-Host 'FAIL: Get-Pes3BackupList empty after backup' -ForegroundColor Red
+            $failures++
+        }
+        else {
+            Write-Host 'PASS: backup create + list' -ForegroundColor Green
+            $passed++
+        }
+    }
+
+    $Script:ConfigPath = $origConfigPath
+    $Script:PathsInitialized = $false
 }
 finally {
     if (Test-Path -LiteralPath $testRoot) {
