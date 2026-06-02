@@ -7,6 +7,7 @@
   "DeleteCacheAfterPlay": true,
   "DumpCachePath": "",
   "DumpCliPath": "",
+  "IrdDir": "",
   "EnableBackups": true,
   "BackupSaves": true,
   "BackupOnLaunch": false,

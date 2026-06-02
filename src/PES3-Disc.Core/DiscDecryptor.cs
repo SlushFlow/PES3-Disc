@@ -9,10 +9,18 @@ namespace PES3Disc.Core;
 /// </summary>
 public sealed class DiscDecryptor
 {
+    private readonly Pes3Config? _config;
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
-    public static string? FindDumpCliPath()
+    public DiscDecryptor(Pes3Config? config = null) => _config = config;
+
+    public bool IsAvailable => FindDumpCliPath(_config) is not null;
+
+    public static string? FindDumpCliPath(Pes3Config? config = null)
     {
+        if (config is not null && !string.IsNullOrWhiteSpace(config.DumpCliPath) && File.Exists(config.DumpCliPath))
+            return config.DumpCliPath;
+
         var baseDir = AppContext.BaseDirectory;
         var candidates = new[]
         {
@@ -22,16 +30,8 @@ public sealed class DiscDecryptor
             Path.GetFullPath(Path.Combine(baseDir, "..", "tools", "pes3-disc-dump.exe")),
         };
 
-        foreach (var path in candidates)
-        {
-            if (File.Exists(path))
-                return path;
-        }
-
-        return null;
+        return candidates.FirstOrDefault(File.Exists);
     }
-
-    public bool IsAvailable => FindDumpCliPath() is not null;
 
     public async Task<DecryptResult> DecryptAsync(
         char driveLetter,
@@ -39,7 +39,7 @@ public sealed class DiscDecryptor
         IProgress<DecryptProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        var cli = FindDumpCliPath();
+        var cli = FindDumpCliPath(_config);
         if (cli is null)
         {
             return new DecryptResult
@@ -53,12 +53,16 @@ public sealed class DiscDecryptor
         Directory.CreateDirectory(outputBase);
         var progressFile = Path.Combine(Path.GetTempPath(), "pes3-disc-progress-" + Guid.NewGuid().ToString("N") + ".json");
 
+        var args = $"--output \"{outputBase}\" --drive {driveLetter} --progress \"{progressFile}\"";
+        if (_config is not null && !string.IsNullOrWhiteSpace(_config.IrdDir))
+            args += $" --ird-dir \"{_config.IrdDir.Trim()}\"";
+
         try
         {
             var psi = new ProcessStartInfo
             {
                 FileName = cli,
-                Arguments = $"--output \"{outputBase}\" --drive {driveLetter} --progress \"{progressFile}\"",
+                Arguments = args,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,

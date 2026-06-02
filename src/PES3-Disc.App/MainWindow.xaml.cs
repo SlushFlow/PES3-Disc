@@ -30,8 +30,11 @@ public partial class MainWindow : Window
     {
         var rpcs3 = App.Services.Config.Rpcs3Path;
         var pes3 = App.Services.Paths.Pes3Root ?? "(configure RPCS3)";
+        var cacheNote = App.Services.Config.DeleteCacheAfterPlay
+            ? "Session cache (cleared after play)"
+            : $"Persistent cache: {App.Services.Paths.CacheRoot}";
         SubtitleText.Text = $"RPCS3: {Path.GetFileName(rpcs3)}  •  PES3: {pes3}";
-        FooterText.Text = "Official discs need a compatible Blu-ray drive. Decrypt once, then play in RPCS3.";
+        FooterText.Text = $"DIY and retail discs use the same PES3 cache for fast RPCS3 loading. {cacheNote}.";
     }
 
     private async void Scan_Click(object sender, RoutedEventArgs e) => await RunScanAsync();
@@ -77,7 +80,7 @@ public partial class MainWindow : Window
             }
 
             StatusBanner.Text = drives.Count > 0
-                ? $"Found {drives.Count} optical drive(s). Showing {cards} PS3-related volume(s)."
+                ? $"Found {drives.Count} optical drive(s). {cards} PS3 volume(s) ready."
                 : "No optical drives ready. Insert a disc and wait for Windows to mount it.";
         }
         finally
@@ -106,9 +109,25 @@ public partial class MainWindow : Window
             _ => $"Drive {drive.Letter}:",
         };
         stack.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.SemiBold, FontSize = 16 });
+
+        var detail = status.Message;
+        if (status.Kind == DiscVolumeKind.Playable && status.Game is not null)
+        {
+            var cached = App.Services.Cache.TryGetCached(drive.Id, status.Game.TitleId, null);
+            detail = cached is not null
+                ? "Cached copy on disk — instant play from SSD."
+                : "Will copy to PES3 cache for the same fast loading as decrypted retail games.";
+        }
+        else if (status.Kind is DiscVolumeKind.EncryptedRetail or DiscVolumeKind.IncompleteBurn)
+        {
+            var cached = App.Services.Cache.TryGetCached(drive.Id, null, null);
+            if (cached is not null)
+                detail = "Decrypted game already in cache — play without re-decrypting.";
+        }
+
         stack.Children.Add(new TextBlock
         {
-            Text = $"{status.Message}  ({drive.Root})",
+            Text = $"{detail}  ({drive.Root})",
             Foreground = (Brush)FindResource("MutedBrush"),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0),
@@ -119,7 +138,13 @@ public partial class MainWindow : Window
         var actions = new StackPanel { Orientation = Orientation.Horizontal };
         if (status.Kind == DiscVolumeKind.Playable && status.Game is not null)
         {
-            var play = new Button { Content = "Play", Style = (Style)FindResource("PrimaryButton"), Margin = new Thickness(0, 0, 8, 0) };
+            var cached = App.Services.Cache.TryGetCached(drive.Id, status.Game.TitleId, null);
+            var play = new Button
+            {
+                Content = cached is not null ? "Play from cache" : "Play",
+                Style = (Style)FindResource("PrimaryButton"),
+                Margin = new Thickness(0, 0, 8, 0),
+            };
             play.Click += async (_, _) => await PlayGameAsync(drive, status.Game);
             actions.Children.Add(play);
         }
@@ -127,7 +152,24 @@ public partial class MainWindow : Window
         {
             if (App.Services.Config.EnableRetailDecrypt)
             {
-                var dec = new Button { Content = "Decrypt & play", Style = (Style)FindResource("PrimaryButton") };
+                var cached = App.Services.Cache.TryGetCached(drive.Id, null, null);
+                if (cached is not null)
+                {
+                    var playCache = new Button
+                    {
+                        Content = "Play from cache",
+                        Style = (Style)FindResource("PrimaryButton"),
+                        Margin = new Thickness(0, 0, 8, 0),
+                    };
+                    playCache.Click += async (_, _) => await PlayFromCacheAsync(cached);
+                    actions.Children.Add(playCache);
+                }
+
+                var dec = new Button
+                {
+                    Content = cached is not null ? "Decrypt again" : "Decrypt & play",
+                    Style = (Style)FindResource("SecondaryButton"),
+                };
                 if (!App.Services.Decryptor.IsAvailable)
                 {
                     dec.IsEnabled = false;
@@ -160,23 +202,53 @@ public partial class MainWindow : Window
         _prompted.Add(drive.Id);
         App.Services.Prompted.Save(_prompted);
 
-        var cleanup = new List<string>();
-        var proc = App.Services.Launcher.LaunchGame(game.EbootPath, cleanup);
+        PlaySession session;
+        var cached = App.Services.Cache.TryGetCached(drive.Id, game.TitleId, null);
+        if (cached is not null)
+        {
+            session = App.Services.Cache.SessionFromCached(cached);
+            StatusBanner.Text = $"Playing from cache: {game.Title}";
+        }
+        else
+        {
+            var stage = new StageWindow(drive, game, game.Title ?? "PS3 game") { Owner = this };
+            if (stage.ShowDialog() != true || stage.Session is null)
+            {
+                if (!string.IsNullOrEmpty(stage.ErrorMessage))
+                    MessageBox.Show(this, stage.ErrorMessage, "PES3-Disc", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            session = stage.Session;
+            StatusBanner.Text = session.FromCache
+                ? $"Playing from cache: {game.Title}"
+                : $"Cached and playing: {game.Title}";
+        }
+
+        await LaunchSessionAsync(session, game.Title);
+    }
+
+    private async Task PlayFromCacheAsync(CachedGameEntry cached)
+    {
+        var session = App.Services.Cache.SessionFromCached(cached);
+        StatusBanner.Text = $"Playing from cache: {cached.Game.Title}";
+        await LaunchSessionAsync(session, cached.Game.Title);
+    }
+
+    private async Task LaunchSessionAsync(PlaySession session, string? title)
+    {
+        var proc = await App.Services.Launcher.LaunchGameAsync(
+            session.EbootPath,
+            session.CleanupDirs.ToList());
         if (proc is null)
         {
             MessageBox.Show(this, "Could not start RPCS3. Check Settings.", "PES3-Disc", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-
-        StatusBanner.Text = $"Playing: {game.Title}";
         await Task.CompletedTask;
     }
 
     private async Task DecryptAndPlayAsync(OpticalDrive drive)
     {
-        if (_prompted.Contains(drive.Id))
-            return;
-
         if (!App.Services.Decryptor.IsAvailable)
         {
             MessageBox.Show(this,
@@ -189,7 +261,16 @@ public partial class MainWindow : Window
         App.Services.Prompted.Save(_prompted);
 
         var cfg = App.Services.Config;
+        var cache = App.Services.Cache;
         var paths = App.Services.Paths;
+
+        var cached = cache.TryGetCached(drive.Id, null, null);
+        if (cached is not null)
+        {
+            await PlayFromCacheAsync(cached);
+            return;
+        }
+
         string outputDir;
         List<string> cleanup;
 
@@ -200,7 +281,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            outputDir = Path.Combine(paths.CacheRoot, $"dump-{DateTime.Now:yyyyMMdd-HHmmss}");
+            outputDir = cache.ResolveRetailOutputDir(null);
             Directory.CreateDirectory(outputDir);
             cleanup = new List<string>();
         }
@@ -218,32 +299,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        string eboot = result.Eboot!;
-        if (!cfg.DeleteCacheAfterPlay && !string.IsNullOrEmpty(result.ProductCode) && result.GameRoot is not null)
-        {
-            var final = Path.Combine(paths.CacheRoot, result.ProductCode);
-            if (Directory.Exists(final))
-            {
-                try { Directory.Delete(final, true); } catch { /* ignore */ }
-            }
-            try
-            {
-                Directory.Move(result.GameRoot, final);
-                eboot = Path.Combine(final, "PS3_GAME", "USRDIR", "EBOOT.BIN");
-                cleanup.Add(final);
-            }
-            catch
-            {
-                cleanup.Add(result.GameRoot);
-            }
-        }
-        else if (result.GameRoot is not null)
-        {
-            cleanup.Add(result.GameRoot);
-        }
-
-        App.Services.Launcher.LaunchGame(eboot, cleanup);
-        StatusBanner.Text = $"Playing: {result.Title ?? result.ProductCode}";
-        await Task.CompletedTask;
+        var session = cache.FinalizeRetailDecrypt(result, outputDir, cleanup);
+        await LaunchSessionAsync(session, result.Title ?? result.ProductCode);
     }
 }

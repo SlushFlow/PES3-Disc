@@ -21,19 +21,35 @@ Output: **`dist\PES3-Disc.exe`** (self-contained, 64-bit Windows).
 
 1. Run **`PES3-Disc.exe`** (or `Start-PES3-Disc.bat` after building — it prefers `dist\PES3-Disc.exe`).
 2. **Setup wizard** — pick `rpcs3.exe`, optional startup and backup options.
-3. Insert a PS3 disc — the home screen lists drives and shows **Play** or **Decrypt & play**.
+3. Insert a PS3 disc — the home screen lists drives and shows **Play**, **Play from cache**, or **Decrypt & play**.
+
+## Unified PES3 cache (DIY + retail)
+
+Both disc types use the same folder under RPCS3:
+
+| Setting | Behavior |
+|---------|----------|
+| **Delete cache when RPCS3 exits** (default on) | Each play copies/decrypts into `PES3\temp\session-*`, then deletes after RPCS3 closes |
+| **Persistent cache** (setting off) | Games stay in `PES3\cache\{TITLE_ID}` or `{product code}`; next insert offers **Play from cache** |
+
+**DIY discs:** the app copies `PS3_GAME` from the optical drive into the cache before launch (robocopy when available), so RPCS3 gets SSD speeds instead of slow BD reads.
+
+**Retail discs:** decryption writes to the same cache layout; a cached copy skips the 30–90 minute decrypt.
+
+Optional: custom cache path, `pes3-disc-dump.exe` path, and IRD folder in **Settings**.
 
 ## Features
 
 | Screen | What it does |
 |--------|----------------|
-| **Setup** | RPCS3 path, delete cache after play, backups, run at login |
-| **Home** | Auto-scan optical drives; play DIY discs; decrypt retail discs |
+| **Setup** | RPCS3 path, cache mode, backups, run at login |
+| **Home** | Auto-scan optical drives; cache-aware play buttons |
+| **Stage** | Copy DIY disc to cache with progress |
 | **Decrypt** | Progress UI while the PS3 Disc Dumper engine decrypts |
-| **Settings** | Change RPCS3 path, scan delay, retail decrypt, backups |
+| **Settings** | RPCS3, cache, retail decrypt CLI, backups |
 
 Config is stored in `%AppData%\PES3-Disc\config.json` (or `config.json` next to the exe if present).  
-PES3 data (cache, logs, backups) still lives under **`RPCS3\PES3\`**.
+PES3 data (cache, logs, backups) lives under **`RPCS3\PES3\`** unless you set a custom cache path.
 
 ## PowerShell scripts (legacy)
 
@@ -42,8 +58,8 @@ The original background watcher remains available:
 - `DiscRun.ps1` / `Start-PES3-Disc.bat` (when no `dist\PES3-Disc.exe`)
 - `Setup.ps1`, `Backup.ps1`, `Test-PES3-Integration.ps1`
 
-The GUI uses the same detection rules and PES3 folder layout as the scripts.
+The GUI and scripts share detection rules, cache layout, and DIY staging (`Prepare-GamePlayCache` in `Ps3DiscRun.ps1`).
 
 ## Retail discs
 
-Same requirements as before: [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives), IRD keys online, and enough disk space. The GUI runs `pes3-disc-dump.exe` from the same `dist\` folder (built automatically when .NET 10 SDK is installed).
+Same requirements as before: [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives), IRD keys online, and enough disk space. The GUI runs `pes3-disc-dump.exe` from `dist\` (built when .NET 10 SDK is installed).

@@ -12,6 +12,8 @@ public sealed class Pes3Config
     public bool DecryptUnknownOpticalMedia { get; set; }
     public bool DeleteCacheAfterPlay { get; set; } = true;
     public string DumpCachePath { get; set; } = "";
+    public string DumpCliPath { get; set; } = "";
+    public string IrdDir { get; set; } = "";
     public bool EnableBackups { get; set; } = true;
     public bool BackupSaves { get; set; } = true;
     public bool BackupOnLaunch { get; set; }

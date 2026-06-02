@@ -149,17 +149,13 @@ public static class DiscDetector
 
     private static DetectedGame GameFromEboot(string eboot)
     {
-        var ps3Game = Directory.GetParent(Directory.GetParent(eboot)!.FullName)!.FullName;
-        var sfo = Path.Combine(ps3Game, "PARAM.SFO");
-        var fields = ParamSfo.ReadFields(sfo);
-        var titleId = fields.GetValueOrDefault("TITLE_ID") ?? Path.GetFileName(Directory.GetParent(ps3Game)!.FullName);
-        var title = fields.GetValueOrDefault("TITLE") ?? titleId;
-
+        var (titleId, title) = GameMetadata.ReadTitleFromEboot(eboot);
         return new DetectedGame
         {
             EbootPath = eboot,
             Title = title,
             TitleId = titleId,
+            GameRoot = GameMetadata.GetGameRootFromEboot(eboot),
         };
     }
 }

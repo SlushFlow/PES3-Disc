@@ -847,13 +847,14 @@ function Test-PathEboot {
 
 function Get-Ps3GameFromEbootPath {
     param([string]$EbootPath)
-    $ps3Game = Split-Path (Split-Path $EbootPath -Parent) -Parent
-    $sfo = Join-Path $ps3Game 'PARAM.SFO'
-    $title = Read-ParamSfoTitle -SfoPath $sfo
+    $meta = Get-GameMetadataFromEboot -EbootPath $EbootPath
     return @{
-        Eboot      = $EbootPath
-        Title      = $title
-        Ps3GameDir = $ps3Game
+        Eboot                 = $EbootPath
+        Title                 = $meta.Title
+        TitleId               = $meta.TitleId
+        GameRoot              = $meta.GameRoot
+        Ps3GameDir            = Join-Path $meta.GameRoot 'PS3_GAME'
+        EphemeralCleanupDirs  = @()
     }
 }
 
@@ -1129,9 +1130,23 @@ Run this game in RPCS3 now?
         [System.Windows.Forms.MessageBoxIcon]::Question
     )
 
-    $cleanupDirs = Get-PathsToCleanupForGame -Game $Game
-
     if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+        try {
+            $Game = Prepare-GamePlayCache -Drive $Drive -Game $Game
+        }
+        catch {
+            Write-Log "DIY cache staging failed: $_"
+            [void][System.Windows.Forms.MessageBox]::Show(
+                "Could not copy the disc to the PES3 cache:`n$_",
+                'PES3-Disc',
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            $PromptedVolumes.Remove($Drive.Id) | Out-Null
+            return $PromptedVolumes
+        }
+
+        $cleanupDirs = Get-PathsToCleanupForGame -Game $Game
         $useNoGui = $false
         if ($config -and $null -ne $config.UseNoGui) {
             $useNoGui = [bool]$config.UseNoGui
@@ -1140,9 +1155,6 @@ Run this game in RPCS3 now?
     }
     else {
         Write-Log "User declined: $($Game.Eboot)"
-        if ($cleanupDirs.Count -gt 0) {
-            Remove-EphemeralCacheDirs -CleanupDirs $cleanupDirs -EbootPath $Game.Eboot -Game $Game
-        }
     }
 
     return $PromptedVolumes
@@ -1169,10 +1181,11 @@ function Get-DumpCliPath {
     return $null
 }
 
-function Get-CachedRetailDump {
+function Get-CachedGameDump {
     param(
         [string]$VolumeId,
-        [string]$ProductCode
+        [string]$ProductCode,
+        [string]$TitleId = ''
     )
 
     if (Test-DeleteCacheAfterPlay) {
@@ -1181,14 +1194,18 @@ function Get-CachedRetailDump {
 
     $cacheRoot = Get-DumpCacheRoot
     $search = @()
-    if ($ProductCode) {
-        $search += Join-Path $cacheRoot $ProductCode
+    foreach ($key in @($ProductCode, $TitleId)) {
+        if (-not $key) { continue }
+        $safe = ($key -replace '[\\/:*?"<>|]', '_').Trim()
+        if ($safe.Length -gt 64) { $safe = $safe.Substring(0, 64) }
+        if ($safe) { $search += Join-Path $cacheRoot $safe }
     }
     if ($VolumeId) {
         $safe = ($VolumeId -replace '[\\/:*?"<>|]', '_').Trim()
         if ($safe.Length -gt 64) { $safe = $safe.Substring(0, 64) }
         if ($safe) { $search += Join-Path $cacheRoot $safe }
     }
+    $search = @($search | Select-Object -Unique)
 
     foreach ($dir in $search) {
         if (-not (Test-Path -LiteralPath $dir)) { continue }
@@ -1210,6 +1227,71 @@ function Get-CachedRetailDump {
         }
     }
     return $null
+}
+
+function Get-CachedRetailDump {
+    param(
+        [string]$VolumeId,
+        [string]$ProductCode
+    )
+    return Get-CachedGameDump -VolumeId $VolumeId -ProductCode $ProductCode
+}
+
+function Prepare-GamePlayCache {
+    param(
+        [hashtable]$Drive,
+        [hashtable]$Game
+    )
+
+    $meta = Get-GameMetadataFromEboot -EbootPath $Game.Eboot
+    $titleId = if ($Game.TitleId) { $Game.TitleId } else { $meta.TitleId }
+
+    $cached = Get-CachedGameDump -VolumeId $Drive.Id -ProductCode $null -TitleId $titleId
+    if ($cached) {
+        Write-Log "Using cached DIY dump: $($cached.Game.Eboot)"
+        $Game.Eboot = $cached.Game.Eboot
+        $Game.Title = $cached.Game.Title
+        $Game.TitleId = $titleId
+        $Game.GameRoot = $cached.CacheDir
+        $Game.EphemeralCleanupDirs = @()
+        return $Game
+    }
+
+    $gameRoot = if ($Game.GameRoot) { $Game.GameRoot } else { $meta.GameRoot }
+    if (-not $gameRoot -or -not (Test-Path -LiteralPath $gameRoot)) {
+        throw "Could not locate game folder on disc for cache staging."
+    }
+
+    if (Test-DeleteCacheAfterPlay) {
+        $dest = Get-EphemeralSessionDir
+        $cleanup = @($dest)
+    }
+    else {
+        $dest = Join-Path (Get-DumpCacheRoot) $titleId
+        if (Test-Path -LiteralPath $dest) {
+            Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        New-Item -ItemType Directory -Path $dest -Force | Out-Null
+        $cleanup = @()
+    }
+
+    Write-Log "Staging DIY disc to cache: $gameRoot -> $dest"
+    if (-not (Copy-DirectoryTree -Source $gameRoot -Destination $dest)) {
+        throw "Failed to copy disc files to PES3 cache."
+    }
+
+    $staged = Find-Ps3GameOnDrive -DriveRoot ($dest + '\')
+    if (-not $staged) {
+        throw "EBOOT.BIN not found after staging to cache."
+    }
+
+    $Game.Eboot = $staged.Eboot
+    $Game.Title = $staged.Title
+    $Game.TitleId = $titleId
+    $Game.GameRoot = $dest
+    $Game.EphemeralCleanupDirs = $cleanup
+    Write-Log "DIY cache ready: $($Game.Eboot)"
+    return $Game
 }
 
 function Show-DecryptProgressForm {

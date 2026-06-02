@@ -31,8 +31,10 @@ public sealed class AppServices
 {
     public Pes3Config Config { get; private set; } = new();
     public Pes3Paths Paths { get; private set; } = null!;
+    public GameCacheService Cache { get; private set; } = null!;
+    public Pes3BackupService Backup { get; private set; } = null!;
     public Rpcs3Launcher Launcher { get; private set; } = null!;
-    public DiscDecryptor Decryptor { get; } = new();
+    public DiscDecryptor Decryptor { get; private set; } = null!;
     public PromptedStore Prompted { get; private set; } = null!;
     public string ConfigPath { get; private set; } = "";
 
@@ -41,12 +43,16 @@ public sealed class AppServices
         var configPath = Pes3Config.GetDefaultConfigPath();
         var config = Pes3Config.Load(configPath);
         var paths = new Pes3Paths(config);
+        var backup = new Pes3BackupService(config, paths);
         return new AppServices
         {
             Config = config,
             ConfigPath = configPath,
             Paths = paths,
-            Launcher = new Rpcs3Launcher(config, paths),
+            Cache = new GameCacheService(config, paths),
+            Backup = backup,
+            Launcher = new Rpcs3Launcher(config, paths, backup),
+            Decryptor = new DiscDecryptor(config),
             Prompted = new PromptedStore(paths),
         };
     }
@@ -61,7 +67,10 @@ public sealed class AppServices
     {
         Config.Save(ConfigPath);
         Paths = new Pes3Paths(Config);
-        Launcher = new Rpcs3Launcher(Config, Paths);
+        Backup = new Pes3BackupService(Config, Paths);
+        Cache = new GameCacheService(Config, Paths);
+        Launcher = new Rpcs3Launcher(Config, Paths, Backup);
+        Decryptor = new DiscDecryptor(Config);
         Prompted = new PromptedStore(Paths);
         Initialize();
     }

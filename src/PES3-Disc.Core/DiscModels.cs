@@ -21,6 +21,8 @@ public sealed class DetectedGame
     public required string EbootPath { get; init; }
     public string? Title { get; init; }
     public string? TitleId { get; init; }
+    /// <summary>Parent folder of PS3_GAME (disc root or game folder on volume).</summary>
+    public string? GameRoot { get; init; }
 }
 
 public sealed class DiscVolumeStatus

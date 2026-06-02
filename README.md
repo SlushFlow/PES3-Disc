@@ -66,8 +66,8 @@ Without the exe, use PowerShell: copy `config.example.json` → `config.json`, t
 
 | Disc type | PES3-Disc |
 |-----------|-----------|
-| **DIY / burned / mounted** disc with decrypted `EBOOT.BIN` | **Works** — prompt and launch RPCS3 |
-| **Retail / official PS3 Blu-ray** | **Decrypt then play** — built-in retail decryptor (`pes3-disc-dump`) |
+| **DIY / burned / mounted** disc with decrypted `EBOOT.BIN` | **Works** — copies to **PES3 cache** (SSD) then launches RPCS3 |
+| **Retail / official PS3 Blu-ray** | **Decrypt then play** — same **PES3 cache**; reuse cached copy on next insert |
 
 For official discs, run **one-time** setup:
 
@@ -75,7 +75,7 @@ For official discs, run **one-time** setup:
 powershell -ExecutionPolicy Bypass -File Setup.ps1 -RetailDecrypt
 ```
 
-Then insert the disc → confirm **Decrypt and play**. Decrypted files go under **`RPCS3\PES3\`** and are **removed when you close RPCS3** by default (saves in `dev_hdd0` are kept). Requires a [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives) and IRD keys.
+Then insert the disc → **Decrypt & play** or **Play from cache** if already decrypted. DIY and retail both use **`RPCS3\PES3\cache`** so RPCS3 reads from SSD instead of the optical drive. Cache is **removed when you close RPCS3** by default (toggle in Settings); saves in `dev_hdd0` are kept. Requires a [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives) and IRD keys for retail.
 
 - DIY / layout details: [docs/DISC-COMPATIBILITY.md](docs/DISC-COMPATIBILITY.md)  
 - Retail decrypt: [docs/RETAIL-DECRYPT.md](docs/RETAIL-DECRYPT.md)

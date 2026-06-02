@@ -1,0 +1,24 @@
+<Window x:Class="PES3Disc.App.StageWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Preparing game cache"
+        Height="260" Width="480"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+  <Grid Margin="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <TextBlock x:Name="TitleText" Text="Copying to PES3 cache…" FontSize="18" FontWeight="SemiBold"/>
+    <TextBlock x:Name="DetailText" Grid.Row="1" Margin="0,8,0,16" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
+               Text="RPCS3 loads faster from SSD than from the optical drive."/>
+    <ProgressBar x:Name="ProgressBar" Grid.Row="2" Height="8" Minimum="0" Maximum="100" IsIndeterminate="True"/>
+    <TextBlock x:Name="PercentText" Grid.Row="3" Margin="0,8,0,0" Foreground="{StaticResource MutedBrush}"/>
+    <Button Grid.Row="4" Content="Cancel" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}"
+            Click="Cancel_Click" Margin="0,16,0,0"/>
+  </Grid>
+</Window>

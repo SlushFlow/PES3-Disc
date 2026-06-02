@@ -13,9 +13,13 @@ public partial class SettingsWindow : Window
         Rpcs3Box.Text = c.Rpcs3Path;
         NoGuiCheck.IsChecked = c.UseNoGui;
         DeleteCacheCheck.IsChecked = c.DeleteCacheAfterPlay;
+        CachePathBox.Text = c.DumpCachePath;
         RetailCheck.IsChecked = c.EnableRetailDecrypt;
         UnknownCheck.IsChecked = c.DecryptUnknownOpticalMedia;
+        DumpCliBox.Text = c.DumpCliPath;
+        IrdDirBox.Text = c.IrdDir;
         BackupsCheck.IsChecked = c.EnableBackups;
+        BackupOnLaunchCheck.IsChecked = c.BackupOnLaunch;
         StartupCheck.IsChecked = c.RunAtStartup;
         DelayBox.Text = c.ScanDelaySeconds.ToString();
     }
@@ -49,9 +53,13 @@ public partial class SettingsWindow : Window
         c.Rpcs3Path = path;
         c.UseNoGui = NoGuiCheck.IsChecked == true;
         c.DeleteCacheAfterPlay = DeleteCacheCheck.IsChecked == true;
+        c.DumpCachePath = CachePathBox.Text.Trim();
         c.EnableRetailDecrypt = RetailCheck.IsChecked == true;
         c.DecryptUnknownOpticalMedia = UnknownCheck.IsChecked == true;
+        c.DumpCliPath = DumpCliBox.Text.Trim();
+        c.IrdDir = IrdDirBox.Text.Trim();
         c.EnableBackups = BackupsCheck.IsChecked == true;
+        c.BackupOnLaunch = BackupOnLaunchCheck.IsChecked == true;
         c.RunAtStartup = StartupCheck.IsChecked == true;
         c.ScanDelaySeconds = delay;
         c.SetupComplete = true;

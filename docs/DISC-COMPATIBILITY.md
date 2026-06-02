@@ -11,7 +11,7 @@ PES3-Disc only works when **Windows can read files** on the inserted volume. Tha
 | **Retail / official PS3 Blu-ray** | **Yes, with decrypt** | **Yes** (on PS3) | Use PES3-Disc retail decrypt (`Setup.ps1 -RetailDecrypt`) — same requirements as PS3 Disc Dumper. |
 | **Retail disc, incompatible drive** | **No** | Yes on console | Drive cannot read PS3 media; upgrade to a [listed BD drive](https://rpcs3.net/quickstart#dumping_drives). |
 
-PES3-Disc decrypts retail discs to a **cache folder**, then launches RPCS3 on the decrypted `EBOOT.BIN`. It does not stream decryption inside RPCS3 ([RPCS3 #18345](https://github.com/RPCS3/rpcs3/issues/18345)).
+PES3-Disc decrypts retail discs (or copies DIY discs) into the shared **`RPCS3\PES3\cache`** folder, then launches RPCS3 on the cached `EBOOT.BIN`. It does not stream decryption inside RPCS3 ([RPCS3 #18345](https://github.com/RPCS3/rpcs3/issues/18345)).
 
 ## DIY / file-based discs (supported)
 
@@ -38,17 +38,17 @@ Also supported:
 - Include **decrypted** files from a proper dump; a raw encrypted rip will be detected only if `EBOOT.BIN` is present and still may fail in RPCS3.
 - Blu-ray (BD-R/BD-RE) is best for large games; DVD-R only fits smaller titles.
 
-## Official retail PS3 discs (not supported in-drive)
+## Official retail PS3 discs (decrypt in PES3-Disc)
 
-On most PCs:
+With a [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives), Windows may expose `PS3_DISC.SFB` and/or encrypted `EBOOT.BIN`. PES3-Disc decrypts to the same **`RPCS3\PES3\cache`** folder used for DIY discs, then launches RPCS3 from SSD.
+
+On incompatible drives:
 
 - The BD drive reports **no files** or only non-game content.
 - There is **no** `PS3_GAME` folder on the drive letter.
-- PES3-Disc will **not** show a launch prompt (nothing to detect).
+- PES3-Disc cannot decrypt in-place (upgrade the drive or dump elsewhere first).
 
-This is expected: retail discs use protection and layout that standard PC Blu-ray stacks do not mount as a normal folder tree ([Super User discussion](https://superuser.com/questions/715574/how-to-mount-ps3-blu-ray-discs-on-windows-7-or-any-os-blu-ray-drive)).
-
-**Workflow that does work:** own the disc → dump with a compatible drive and **PS3 Disc Dumper** → run from the dumped folder in RPCS3 (or burn that folder to a DIY disc for PES3-Disc).
+**Alternative workflow:** dump with **PS3 Disc Dumper** → burn/mount as a DIY disc, or point RPCS3 at the dump folder directly.
 
 ## How to verify on your machine
 
