@@ -30,4 +30,4 @@ if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed.' }
 $exe = Join-Path $out 'PES3-Disc.exe'
 Write-Host ""
 Write-Host "Done: $exe"
-Write-Host "Run PES3-Disc.exe — setup wizard, disc scan, decrypt, and play in one app."
+Write-Host 'Run PES3-Disc.exe - setup wizard, disc scan, decrypt, and play in one app.'
