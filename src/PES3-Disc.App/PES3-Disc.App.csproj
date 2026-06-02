@@ -10,6 +10,7 @@
     <RootNamespace>PES3Disc.App</RootNamespace>
     <Version>1.0.0</Version>
     <Description>PlayStation Emulation Station 3 Disc - setup, decrypt, and play PS3 discs in RPCS3</Description>
+    <ApplicationIcon>..\..\assets\PES3-Disc.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PES3-Disc.Core\PES3-Disc.Core.csproj" />

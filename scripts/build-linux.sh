@@ -72,6 +72,7 @@ fi
 
 [[ -f packaging/linux/install.sh ]] && cp packaging/linux/install.sh "$OUT/" && chmod +x "$OUT/install.sh"
 [[ -f packaging/linux/pes3-disc.desktop ]] && cp packaging/linux/pes3-disc.desktop "$OUT/"
+[[ -f assets/PES3-Disc.png ]] && cp assets/PES3-Disc.png "$OUT/"
 [[ -f docs/LINUX.md ]] && cp docs/LINUX.md "$OUT/"
 
 ARCHIVE="$PKG/PES3-Disc-linux-x64.tar.gz"

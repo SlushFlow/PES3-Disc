@@ -6,9 +6,12 @@ BIN="$DEST/bin"
 SHARE="$DEST/share"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-mkdir -p "$BIN" "$SHARE/applications" "$SHARE/doc/pes3-disc"
+mkdir -p "$BIN" "$SHARE/applications" "$SHARE/doc/pes3-disc" "$SHARE/icons/hicolor/256x256/apps"
 install -m 755 "$SCRIPT_DIR/PES3-Disc" "$BIN/PES3-Disc"
 ln -sf PES3-Disc "$BIN/pes3-disc" 2>/dev/null || true
+if [[ -f "$SCRIPT_DIR/PES3-Disc.png" ]]; then
+  install -m 644 "$SCRIPT_DIR/PES3-Disc.png" "$SHARE/icons/hicolor/256x256/apps/pes3-disc.png"
+fi
 if [[ -f "$SCRIPT_DIR/pes3-disc-dump-linux" ]]; then
   install -m 755 "$SCRIPT_DIR/pes3-disc-dump-linux" "$BIN/pes3-disc-dump-linux"
 fi
