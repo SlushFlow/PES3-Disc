@@ -46,5 +46,5 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: runatstartup
 
 [Run]
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-DotNet-Runtimes.ps1"""; StatusMsg: "Installing .NET 8 and .NET 10 Desktop Runtimes (internet required)..."; Flags: runhidden waituntilterminated
+Filename: "{app}\Install-DotNet-Runtimes.cmd"; StatusMsg: "Installing .NET 8 and .NET 10 Desktop Runtimes (internet required)..."; Flags: runhidden waituntilterminated
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
