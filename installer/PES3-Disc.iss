@@ -38,9 +38,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "startup"; Description: "Start PES3-Disc when Windows starts"; GroupDescription: "Startup:"; Flags: unchecked
 
 [Files]
-Source: "Install-DotNet-Runtimes.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Build dist\ first with Build-Installer.ps1
+; Build-Installer.ps1 fills installer\stage\ from dist\ before ISCC runs
+Source: "stage\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
