@@ -77,12 +77,12 @@ $sdks = & dotnet --list-sdks 2>&1 | Out-String
 $hasNet10 = $sdks -match '10\.'
 
 if ((Test-Path -LiteralPath $dumpProj) -and $hasNet10) {
-    if (-not (Test-Path -LiteralPath (Join-Path $submodule 'Ps3DiscDumper\Ps3DiscDumper.csproj'))) {
+    if (-not (Test-Path -LiteralPath (Join-Path $submodule 'Ps3DiscDumper\Ps3DiscDumper.csproj')) {
         Write-Host 'Cloning ps3-disc-dumper for pes3-disc-dump.exe...'
         New-Item -ItemType Directory -Path (Split-Path $submodule -Parent) -Force | Out-Null
         & $git clone --depth 1 https://github.com/13xforever/ps3-disc-dumper.git $submodule
     }
-    if (Test-Path -LiteralPath (Join-Path $submodule 'Ps3DiscDumper\Ps3DiscDumper.csproj'))) {
+    if (Test-Path -LiteralPath (Join-Path $submodule 'Ps3DiscDumper\Ps3DiscDumper.csproj')) {
         Write-Host 'Building pes3-disc-dump.exe (retail decrypt)...'
         & dotnet publish $dumpProj -c Release -r win-x64 --self-contained false -o $out
         if ($LASTEXITCODE -eq 0) {
