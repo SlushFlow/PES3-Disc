@@ -59,7 +59,7 @@ if (Test-Path -LiteralPath $stageDir) {
     Remove-Item -LiteralPath $stageDir -Recurse -Force
 }
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $distDir '*') -Destination $stageDir -Recurse -Force
+Get-ChildItem -Path $distDir -Force | Copy-Item -Destination $stageDir -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $installerDir 'Install-DotNet-Runtimes.ps1') -Destination $stageDir -Force
 
 if (-not (Test-Path -LiteralPath (Join-Path $stageDir 'PES3-Disc.exe'))) {
