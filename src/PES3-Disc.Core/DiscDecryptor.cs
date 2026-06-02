@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 using System.Text.Json;
 
 namespace PES3Disc.Core;
@@ -173,7 +174,7 @@ public sealed class DiscDecryptor
 
     private static string? ParseLastError(string stdout)
     {
-        foreach (var line in stdout.Split('\n').Reverse())
+        foreach (var line in Enumerable.Reverse(stdout.Split('\n')))
         {
             if (!line.Contains("\"type\"", StringComparison.OrdinalIgnoreCase) ||
                 !line.Contains("error", StringComparison.OrdinalIgnoreCase))
