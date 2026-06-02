@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Builds PES3-Disc Avalonia GUI + pes3-disc-dump-linux for linux-x64.
+# Expects ps3-disc-dumper cloned and patched by CI (see patch-ps3-disc-dumper-for-linux.sh).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -7,11 +8,11 @@ OUT="$ROOT/dist/linux-x64"
 PKG="$ROOT/installer/output"
 mkdir -p "$OUT" "$PKG"
 
-if [[ -d external/ps3-disc-dumper ]]; then
-  cp -f build/ps3-disc-dumper.Directory.Build.props external/ps3-disc-dumper/Directory.Build.props
-  chmod +x scripts/patch-ps3-disc-dumper-for-linux.sh
-  ./scripts/patch-ps3-disc-dumper-for-linux.sh
-fi
+echo "==> Restoring solution…"
+dotnet restore PES3-Disc.sln
+
+echo "==> Compiling solution (Release)…"
+dotnet build PES3-Disc.sln -c Release --no-restore
 
 echo "==> Publishing PES3-Disc GUI (Avalonia, linux-x64)…"
 dotnet publish src/PES3-Disc.Avalonia/PES3-Disc.Avalonia.csproj \
@@ -19,30 +20,29 @@ dotnet publish src/PES3-Disc.Avalonia/PES3-Disc.Avalonia.csproj \
   -r linux-x64 \
   --self-contained true \
   -p:PublishSingleFile=true \
-  -o "$OUT"
+  -o "$OUT" \
+  --no-restore
 
 DISC_DUMPER="$ROOT/external/ps3-disc-dumper/Ps3DiscDumper/Ps3DiscDumper.csproj"
 if [[ -f "$DISC_DUMPER" ]]; then
   echo "==> Publishing pes3-disc-dump-linux…"
-  if dotnet publish tools/PES3-Disc.LinuxDump/PES3-Disc.LinuxDump.csproj \
+  dotnet publish tools/PES3-Disc.LinuxDump/PES3-Disc.LinuxDump.csproj \
     -c Release \
     -r linux-x64 \
     --self-contained true \
     -p:PublishSingleFile=true \
-    -o "$OUT"; then
-    echo "Included pes3-disc-dump-linux"
-  else
-    echo "WARNING: pes3-disc-dump-linux build failed (retail decrypt unavailable)." >&2
-  fi
+    -o "$OUT" \
+    --no-restore
+  echo "Included pes3-disc-dump-linux"
 else
-  echo "SKIP: clone ps3-disc-dumper for retail decrypt on Linux." >&2
+  echo "SKIP: external/ps3-disc-dumper not present (retail decrypt not bundled)." >&2
 fi
 
-# Optional headless CLI
 if [[ -f src/PES3-Disc.Cli/PES3-Disc.Cli.csproj ]]; then
+  echo "==> Publishing optional pes3-disc-cli…"
   dotnet publish src/PES3-Disc.Cli/PES3-Disc.Cli.csproj \
     -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true \
-    -o "$OUT" -p:AssemblyName=pes3-disc-cli 2>/dev/null || true
+    -o "$OUT" -p:AssemblyName=pes3-disc-cli --no-restore || true
 fi
 
 [[ -f packaging/linux/install.sh ]] && cp packaging/linux/install.sh "$OUT/" && chmod +x "$OUT/install.sh"

@@ -34,24 +34,26 @@ public static class CliApp
 
     private static int PrintHelp()
     {
-        Console.WriteLine(
-            """
-            PES3-Disc — PlayStation Emulation Station 3 Disc (Linux CLI)
-
-            Usage:
-              pes3-disc                 Watch optical / mounted volumes (default)
-              pes3-disc scan            List PS3 discs once
-              pes3-disc play <n>        Play disc index from last scan
-              pes3-disc decrypt <n>     Decrypt retail disc and play
-              pes3-disc setup <path>    Set RPCS3 executable path
-              pes3-disc config          Show configuration
-              pes3-disc watch           Poll drives every N seconds
-
-            Options (watch):
-              --interval <sec>          Scan delay (default: from config)
-
-            Cache: DIY discs copy to RPCS3/PES3/cache (same as Windows). Use config.json in:
-            """.ReplaceLineEndings("\n") + Pes3Config.GetDefaultConfigPath());
+        var help = string.Join('\n', new[]
+        {
+            "PES3-Disc — PlayStation Emulation Station 3 Disc (Linux CLI)",
+            "",
+            "Usage:",
+            "  pes3-disc                 Watch optical / mounted volumes (default)",
+            "  pes3-disc scan            List PS3 discs once",
+            "  pes3-disc play <n>        Play disc index from last scan",
+            "  pes3-disc decrypt <n>     Decrypt retail disc and play",
+            "  pes3-disc setup <path>    Set RPCS3 executable path",
+            "  pes3-disc config          Show configuration",
+            "  pes3-disc watch           Poll drives every N seconds",
+            "",
+            "Options (watch):",
+            "  --interval <sec>          Scan delay (default: from config)",
+            "",
+            "Cache: DIY discs copy to RPCS3/PES3/cache (same as Windows). Use config.json in:",
+            Pes3Config.GetDefaultConfigPath(),
+        });
+        Console.WriteLine(help);
         return 0;
     }
 
