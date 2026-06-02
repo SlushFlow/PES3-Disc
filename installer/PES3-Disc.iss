@@ -10,7 +10,7 @@
 #define MyAppExeName "PES3-Disc.exe"
 
 [Setup]
-AppId={{A7F3B2C1-9E4D-4F8A-B1C2-2030A5D15C3D}
+AppId={{A7F3B2C1-9E4D-4F8A-B1C2-2030A5D15C30}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
