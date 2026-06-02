@@ -1,4 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Layout;
+using Avalonia.Media;
 using PES3Disc.Core;
 using PES3Disc.ViewModels;
 
@@ -39,12 +43,12 @@ public sealed class AvaloniaUiHost : IPes3UiHost
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Content = new StackPanel
             {
-                Margin = new Avalonia.Thickness(20),
+                Margin = new Thickness(20),
                 Spacing = 12,
                 Children =
                 {
-                    new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                    new Button { Content = "OK", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right },
+                    new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
+                    new Button { Content = "OK", HorizontalAlignment = HorizontalAlignment.Right },
                 },
             },
         };
@@ -57,7 +61,7 @@ public sealed class AvaloniaUiHost : IPes3UiHost
 
     private static Window GetOwner()
     {
-        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime d)
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d)
             return d.MainWindow ?? throw new InvalidOperationException("No main window.");
         throw new InvalidOperationException("No desktop lifetime.");
     }

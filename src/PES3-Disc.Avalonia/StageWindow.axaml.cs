@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using PES3Disc.Core;
 
 namespace PES3Disc.Avalonia;
@@ -27,7 +28,7 @@ public partial class StageWindow : Window
         _cts = new CancellationTokenSource();
         var progress = new Progress<StageProgress>(p =>
         {
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 if (p.TotalFiles > 0)
                 {

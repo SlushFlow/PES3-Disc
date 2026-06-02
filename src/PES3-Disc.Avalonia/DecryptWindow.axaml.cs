@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using PES3Disc.Core;
 
 namespace PES3Disc.Avalonia;
@@ -29,7 +30,7 @@ public partial class DecryptWindow : Window
         _cts = new CancellationTokenSource();
         var progress = new Progress<DecryptProgress>(p =>
         {
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 if (!string.IsNullOrEmpty(p.Title))
                     TitleText.Text = $"Decrypting: {p.Title}";

@@ -1,5 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
 using PES3Disc.Core;
 using PES3Disc.ViewModels;
@@ -65,8 +67,8 @@ public partial class MainWindow : Window
                 {
                     Text = "No PS3 discs detected. Insert a disc and click Scan.",
                     Classes = { "muted" },
-                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                    Margin = new Avalonia.Thickness(0, 40, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 40, 0, 0),
                 });
             }
 
@@ -91,21 +93,21 @@ public partial class MainWindow : Window
         stack.Children.Add(new TextBlock
         {
             Text = card.Title,
-            FontWeight = Avalonia.Media.FontWeight.SemiBold,
+            FontWeight = FontWeight.SemiBold,
             FontSize = 16,
-            Foreground = Avalonia.Media.Brushes.White,
+            Foreground = Brushes.White,
         });
         stack.Children.Add(new TextBlock
         {
             Text = card.Detail,
             Classes = { "muted" },
-            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-            Margin = new Avalonia.Thickness(0, 4, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 0),
         });
         Grid.SetColumn(stack, 0);
         grid.Children.Add(stack);
 
-        var actions = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8 };
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         if (card.CanPlay && card.Status.Game is { } game)
         {
             var play = new Button

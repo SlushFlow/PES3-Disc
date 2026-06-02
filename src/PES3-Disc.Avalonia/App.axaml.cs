@@ -8,7 +8,7 @@ namespace PES3Disc.Avalonia;
 public partial class App : Application
 {
     public static Pes3Services Services { get; private set; } = null!;
-    public static Pes3AppController Controller { get; private set; } = null!;
+    public static Pes3AppController Controller { get; internal set; } = null!;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
