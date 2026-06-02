@@ -1,5 +1,8 @@
+using System.Runtime.Versioning;
+
 namespace PES3Disc.Core;
 
+[SupportedOSPlatform("windows")]
 public static class StartupShortcut
 {
     private const string ShortcutName = "PES3-Disc.lnk";
