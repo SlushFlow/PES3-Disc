@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace PES3Disc.Core;
 
 public sealed class Rpcs3Launcher
