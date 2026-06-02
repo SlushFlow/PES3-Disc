@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>13.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>pes3-disc</AssemblyName>
+    <RootNamespace>PES3Disc.Cli</RootNamespace>
+    <Version>1.0.0</Version>
+    <Description>PES3-Disc for Linux — PS3 discs in RPCS3 (CLI)</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PES3-Disc.Core\PES3-Disc.Core.csproj" />
+  </ItemGroup>
+</Project>

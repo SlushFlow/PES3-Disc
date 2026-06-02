@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=PES3-Disc
+Comment=Play PS3 discs in RPCS3
+Exec=@BINDIR@/pes3-disc
+Icon=media-optical
+Terminal=true
+Categories=Game;Emulator;

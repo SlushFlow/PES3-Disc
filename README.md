@@ -10,7 +10,12 @@ When you insert a PS3 game disc (or a burned disc with the standard PS3 folder l
 
 ### Download (recommended)
 
-**[GitHub Releases](https://github.com/SlushFlow/PES3-Disc/releases)** — download **`PES3-Disc-Setup.exe`**.
+**[GitHub Releases](https://github.com/SlushFlow/PES3-Disc/releases)**
+
+| Platform | Artifact |
+|----------|----------|
+| **Windows** | `PES3-Disc-Setup.exe` (installer) + portable ZIP |
+| **Linux** | `PES3-Disc-linux-x64.tar.gz` — CLI `pes3-disc` ([guide](docs/LINUX.md)) |
 
 The installer sets up the app plus **.NET 8** and **.NET 10** Desktop Runtimes (internet required during install).
 
@@ -51,8 +56,8 @@ Without the exe, use PowerShell: copy `config.example.json` → `config.json`, t
 
 ## Requirements
 
-- **Windows 10/11**
-- **RPCS3** installed (`rpcs3.exe`)
+- **Windows 10/11** or **Linux x64** (CLI)
+- **RPCS3** installed (`rpcs3.exe` / `rpcs3`)
 - Disc readable in Windows with this layout (typical for burned / file-based discs):
 
   ```

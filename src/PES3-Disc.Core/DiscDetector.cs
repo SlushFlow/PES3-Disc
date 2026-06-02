@@ -1,14 +1,22 @@
 namespace PES3Disc.Core;
 
-public static class DiscDetector
+public static partial class DiscDetector
 {
     public static IReadOnlyList<OpticalDrive> GetOpticalDrives()
     {
+        if (OperatingSystem.IsWindows())
+            return GetWindowsOpticalDrives();
+        if (OperatingSystem.IsLinux())
+            return GetLinuxOpticalDrives();
+        return GetPortableOpticalDrives();
+    }
+
+    private static IReadOnlyList<OpticalDrive> GetPortableOpticalDrives()
+    {
         var list = new List<OpticalDrive>();
+        var index = 0;
         foreach (var drive in DriveInfo.GetDrives())
         {
-            if (drive.DriveType != DriveType.CDRom)
-                continue;
             try
             {
                 if (!drive.IsReady || string.IsNullOrEmpty(drive.Name))
@@ -19,26 +27,20 @@ public static class DiscDetector
                 continue;
             }
 
-            var letter = drive.Name[0];
-            var id = !string.IsNullOrEmpty(drive.VolumeLabel)
-                ? $"{letter}|{drive.VolumeLabel}"
-                : $"{letter}|{drive.DriveFormat}";
-
             list.Add(new OpticalDrive
             {
-                Letter = letter,
+                Letter = (char)('A' + (index++ % 26)),
                 Root = drive.Name,
-                Id = id,
+                Id = $"{index}|{drive.VolumeLabel ?? drive.Name}",
                 VolumeLabel = drive.VolumeLabel,
             });
         }
-
         return list;
     }
 
     public static DiscVolumeStatus GetVolumeStatus(string driveRoot)
     {
-        if (!driveRoot.EndsWith(Path.DirectorySeparatorChar))
+        if (!driveRoot.EndsWith(Path.DirectorySeparatorChar) && !driveRoot.EndsWith('/'))
             driveRoot += Path.DirectorySeparatorChar;
 
         var eboot = FindEboot(driveRoot);

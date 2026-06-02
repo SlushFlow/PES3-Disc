@@ -22,19 +22,41 @@ public sealed class DiscDecryptor
             return config.DumpCliPath;
 
         var baseDir = AppContext.BaseDirectory;
-        var candidates = new[]
+        var names = PlatformPaths.DumpCliCandidateNames();
+        var candidates = names.SelectMany(n => new[]
         {
-            Path.Combine(baseDir, "pes3-disc-dump.exe"),
-            Path.Combine(baseDir, "tools", "pes3-disc-dump.exe"),
-            Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "tools", "pes3-disc-dump.exe")),
-            Path.GetFullPath(Path.Combine(baseDir, "..", "tools", "pes3-disc-dump.exe")),
-        };
+            Path.Combine(baseDir, n),
+            Path.Combine(baseDir, "tools", n),
+            Path.GetFullPath(Path.Combine(baseDir, "..", "tools", n)),
+        }).Distinct();
 
         return candidates.FirstOrDefault(File.Exists);
     }
 
-    public async Task<DecryptResult> DecryptAsync(
+    public Task<DecryptResult> DecryptAsync(
         char driveLetter,
+        string outputBase,
+        IProgress<DecryptProgress>? progress = null,
+        CancellationToken cancellationToken = default) =>
+        DecryptVolumeAsync($"{driveLetter}:\\", driveLetter, null, outputBase, progress, cancellationToken);
+
+    public Task<DecryptResult> DecryptAsync(
+        OpticalDrive drive,
+        string outputBase,
+        IProgress<DecryptProgress>? progress = null,
+        CancellationToken cancellationToken = default) =>
+        DecryptVolumeAsync(
+            drive.Root,
+            OperatingSystem.IsWindows() ? drive.Letter : null,
+            OperatingSystem.IsLinux() ? drive.Root : null,
+            outputBase,
+            progress,
+            cancellationToken);
+
+    public async Task<DecryptResult> DecryptVolumeAsync(
+        string volumeRoot,
+        char? driveLetter,
+        string? mountPath,
         string outputBase,
         IProgress<DecryptProgress>? progress = null,
         CancellationToken cancellationToken = default)
@@ -46,16 +68,25 @@ public sealed class DiscDecryptor
             {
                 Success = false,
                 ErrorCode = "no_cli",
-                ErrorMessage = "pes3-disc-dump.exe not found. Run Build-App.ps1 or Setup.ps1 -RetailDecrypt.",
+                ErrorMessage = "pes3-disc-dump not found. Build with .NET 10 SDK or set DumpCliPath in config.",
             };
         }
 
         Directory.CreateDirectory(outputBase);
         var progressFile = Path.Combine(Path.GetTempPath(), "pes3-disc-progress-" + Guid.NewGuid().ToString("N") + ".json");
 
-        var args = $"--output \"{outputBase}\" --drive {driveLetter} --progress \"{progressFile}\"";
+        var args = $"--output \"{outputBase}\" --progress \"{progressFile}\"";
+        if (driveLetter.HasValue && OperatingSystem.IsWindows())
+            args += $" --drive {driveLetter.Value}";
+        else if (!string.IsNullOrWhiteSpace(mountPath))
+            args += $" --mount \"{mountPath.TrimEnd('/', '\\')}\"";
+        else if (!string.IsNullOrWhiteSpace(volumeRoot))
+            args += $" --mount \"{volumeRoot.TrimEnd('/', '\\')}\"";
+
         if (_config is not null && !string.IsNullOrWhiteSpace(_config.IrdDir))
             args += $" --ird-dir \"{_config.IrdDir.Trim()}\"";
+        else
+            args += $" --ird-dir \"{PlatformPaths.DefaultIrdDirectory}\"";
 
         try
         {

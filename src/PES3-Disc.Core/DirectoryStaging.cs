@@ -29,7 +29,18 @@ public static class DirectoryStaging
         var total = CountFiles(source);
         var copied = 0;
 
-        if (TryRobocopy(source, destination, out var robocopyOk) && robocopyOk)
+        if (OperatingSystem.IsWindows() && TryRobocopy(source, destination, out var robocopyOk) && robocopyOk)
+        {
+            progress?.Report(new StageProgress
+            {
+                Status = "Copy complete",
+                FilesCopied = total,
+                TotalFiles = total,
+            });
+            return true;
+        }
+
+        if (OperatingSystem.IsLinux() && TryRsync(source, destination, out var rsyncOk) && rsyncOk)
         {
             progress?.Report(new StageProgress
             {
@@ -77,6 +88,31 @@ public static class DirectoryStaging
     {
         var system32 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "robocopy.exe");
         return File.Exists(system32) ? system32 : null;
+    }
+
+    private static bool TryRsync(string source, string destination, out bool success)
+    {
+        success = false;
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "rsync",
+                Arguments = $"-a --info=progress2 \"{source.TrimEnd('/')}/\" \"{destination.TrimEnd('/')}/\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(psi);
+            if (proc is null)
+                return false;
+            proc.WaitForExit();
+            success = proc.ExitCode == 0;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static async Task<bool> CopyTreeManagedAsync(

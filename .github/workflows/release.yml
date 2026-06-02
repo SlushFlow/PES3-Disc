@@ -97,8 +97,7 @@ jobs:
             Compress-Archive -Path dist/PES3-Disc.exe -DestinationPath $zip -Force
           }
 
-      - name: Upload build artifacts (CI / manual)
-        if: github.ref_type != 'tag'
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: PES3-Disc-windows-${{ steps.version.outputs.version }}
@@ -106,13 +105,70 @@ jobs:
             installer/output/PES3-Disc-Setup.exe
             installer/output/PES3-Disc-portable-win-x64.zip
 
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            v="${GITHUB_REF_NAME#v}"
+          else
+            v="0.0.0-ci"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "PES3_VERSION=$v" >> "$GITHUB_ENV"
+          echo "Building version $v"
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Clone ps3-disc-dumper
+        run: |
+          mkdir -p external
+          git clone --depth 1 https://github.com/13xforever/ps3-disc-dumper.git external/ps3-disc-dumper
+          cp build/ps3-disc-dumper.Directory.Build.props external/ps3-disc-dumper/Directory.Build.props
+
+      - name: Build Linux bundle
+        run: |
+          chmod +x scripts/build-linux.sh
+          ./scripts/build-linux.sh
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PES3-Disc-linux-${{ steps.version.outputs.version }}
+          path: installer/output/PES3-Disc-linux-x64.tar.gz
+
+  release:
+    needs: [build-windows, build-linux]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: PES3-Disc-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: List release files
+        run: find release-assets -type f
+
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          name: PES3-Disc ${{ steps.version.outputs.version }}
+          name: PES3-Disc ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            installer/output/PES3-Disc-Setup.exe
-            installer/output/PES3-Disc-portable-win-x64.zip
+            release-assets/PES3-Disc-Setup.exe
+            release-assets/PES3-Disc-portable-win-x64.zip
+            release-assets/PES3-Disc-linux-x64.tar.gz

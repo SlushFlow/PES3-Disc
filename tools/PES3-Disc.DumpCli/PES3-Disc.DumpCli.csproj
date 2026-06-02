@@ -9,6 +9,7 @@
     <RootNamespace>PES3Disc.DumpCli</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\PES3-Disc.Core\PES3-Disc.Core.csproj" />
     <ProjectReference Include="..\..\external\ps3-disc-dumper\Ps3DiscDumper\Ps3DiscDumper.csproj" />
   </ItemGroup>
 </Project>

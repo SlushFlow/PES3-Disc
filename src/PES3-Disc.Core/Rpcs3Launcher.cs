@@ -20,14 +20,7 @@ public sealed class Rpcs3Launcher
         if (_config.IsRpcs3Configured)
             return _config.Rpcs3Path;
 
-        var candidates = new[]
-        {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RPCS3", "rpcs3.exe"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "RPCS3", "rpcs3.exe"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "RPCS3", "rpcs3.exe"),
-        };
-
-        return candidates.FirstOrDefault(File.Exists);
+        return PlatformPaths.Rpcs3CandidatePaths().FirstOrDefault(File.Exists);
     }
 
     public async Task<Process?> LaunchGameAsync(

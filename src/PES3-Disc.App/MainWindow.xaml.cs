@@ -286,7 +286,7 @@ public partial class MainWindow : Window
             cleanup = new List<string>();
         }
 
-        var dlg = new DecryptWindow(drive.Letter, outputDir) { Owner = this };
+        var dlg = new DecryptWindow(drive, outputDir) { Owner = this };
         if (dlg.ShowDialog() != true || dlg.Result is not { Success: true } result)
         {
             if (cfg.DeleteCacheAfterPlay && Directory.Exists(outputDir))

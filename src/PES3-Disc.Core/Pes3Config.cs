@@ -34,9 +34,7 @@ public sealed class Pes3Config
         if (File.Exists(portable))
             return portable;
 
-        var dir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "PES3-Disc");
+        var dir = PlatformPaths.ConfigDirectory;
         Directory.CreateDirectory(dir);
         return Path.Combine(dir, "config.json");
     }

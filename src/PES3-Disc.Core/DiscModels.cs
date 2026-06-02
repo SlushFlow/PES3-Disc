@@ -10,10 +10,16 @@ public enum DiscVolumeKind
 
 public sealed class OpticalDrive
 {
+    /// <summary>Display index (Windows drive letter or A/B/C on Linux).</summary>
     public required char Letter { get; init; }
     public required string Root { get; init; }
     public required string Id { get; init; }
     public string? VolumeLabel { get; init; }
+    /// <summary>Linux block device (e.g. /dev/sr0) when known.</summary>
+    public string? DeviceNode { get; init; }
+
+    public string DisplayName =>
+        VolumeLabel ?? (OperatingSystem.IsWindows() ? $"{Letter}:" : Root.TrimEnd('/', '\\'));
 }
 
 public sealed class DetectedGame

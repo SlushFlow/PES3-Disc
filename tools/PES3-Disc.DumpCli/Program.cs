@@ -37,9 +37,9 @@ internal static class Program
             try
             {
                 Emit("scan", "Scanning for PS3 disc…");
-                var inDir = options.DriveLetter.HasValue
+                var inDir = options.MountPath ?? (options.DriveLetter.HasValue
                     ? $"{options.DriveLetter.Value}:\\"
-                    : string.Empty;
+                    : string.Empty);
                 dumper.DetectDisc(inDir);
 
                 if (string.IsNullOrEmpty(dumper.ProductCode))
@@ -150,6 +150,7 @@ internal static class Program
 internal sealed class CliOptions
 {
     public char? DriveLetter { get; init; }
+    public string? MountPath { get; init; }
     public required string OutputBase { get; init; }
     public required string IrdDir { get; init; }
     public string? ProgressFile { get; init; }
@@ -159,12 +160,13 @@ internal sealed class CliOptions
 PES3-Disc retail disc decryptor (uses PS3 Disc Dumper engine)
 
 Usage:
-  pes3-disc-dump --output <folder> [--drive <letter>] [--ird-dir <folder>] [--progress <file.json>]
+  pes3-disc-dump --output <folder> [--drive <letter> | --mount <path>] [--ird-dir <folder>] [--progress <file.json>]
 
 Options:
   --output, -o    Base folder for decrypted dump (required)
-  --drive, -d     Optical drive letter to scan first (e.g. E)
-  --ird-dir       IRD / key cache folder (default: %LocalAppData%\ps3-disc-dumper\ird)
+  --drive, -d     Windows optical drive letter (e.g. E)
+  --mount, -m     Mounted disc path (Linux: /run/media/user/… or /media/…)
+  --ird-dir       IRD / key cache folder
   --progress, -p  Write progress JSON to this file while dumping
   --help, -h      Show help
 
@@ -174,6 +176,7 @@ Exit codes: 0=ok, 1=error, 2=no disc, 3=cancelled, 4=validation, 5=no eboot, 6=n
     public static CliOptions Parse(string[] args)
     {
         char? drive = null;
+        string? mount = null;
         string? output = null;
         string? irdDir = null;
         string? progress = null;
@@ -198,6 +201,10 @@ Exit codes: 0=ok, 1=error, 2=no disc, 3=cancelled, 4=validation, 5=no eboot, 6=n
                     if (d.Length is not 1) throw new ArgumentException("Drive letter must be a single character.");
                     drive = char.ToUpperInvariant(d[0]);
                     break;
+                case "-m":
+                case "--mount":
+                    mount = RequireValue(args, ref i, a);
+                    break;
                 case "--ird-dir":
                     irdDir = RequireValue(args, ref i, a);
                     break;
@@ -216,14 +223,12 @@ Exit codes: 0=ok, 1=error, 2=no disc, 3=cancelled, 4=validation, 5=no eboot, 6=n
         if (string.IsNullOrWhiteSpace(output))
             throw new ArgumentException("Missing required --output folder.");
 
-        irdDir ??= Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "ps3-disc-dumper",
-            "ird");
+        irdDir ??= PES3Disc.Core.PlatformPaths.DefaultIrdDirectory;
 
         return new CliOptions
         {
             DriveLetter = drive,
+            MountPath = mount is null ? null : Path.GetFullPath(mount),
             OutputBase = Path.GetFullPath(output),
             IrdDir = Path.GetFullPath(irdDir),
             ProgressFile = progress,

@@ -5,17 +5,17 @@ namespace PES3Disc.App;
 
 public partial class DecryptWindow : Window
 {
-    private readonly char _driveLetter;
+    private readonly OpticalDrive _drive;
     private readonly string _outputDir;
     private CancellationTokenSource? _cts;
     public DecryptResult? Result { get; private set; }
 
-    public DecryptWindow(char driveLetter, string outputDir)
+    public DecryptWindow(OpticalDrive drive, string outputDir)
     {
         InitializeComponent();
-        _driveLetter = driveLetter;
+        _drive = drive;
         _outputDir = outputDir;
-        TitleText.Text = $"Decrypting drive {_driveLetter}:";
+        TitleText.Text = $"Decrypting {_drive.DisplayName}:";
         DetailText.Text = "This may take 30–90+ minutes for large games.";
     }
 
@@ -32,7 +32,7 @@ public partial class DecryptWindow : Window
         try
         {
             Result = await App.Services.Decryptor.DecryptAsync(
-                _driveLetter,
+                _drive,
                 _outputDir,
                 progress,
                 _cts.Token);
