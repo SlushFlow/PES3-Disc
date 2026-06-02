@@ -1,0 +1,5 @@
+{
+  "Rpcs3Path": "C:\\Path\\To\\RPCS3\\rpcs3.exe",
+  "ScanDelaySeconds": 3,
+  "UseNoGui": false
+}
