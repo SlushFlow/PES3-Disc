@@ -8,11 +8,21 @@ OUT="$ROOT/dist/linux-x64"
 PKG="$ROOT/installer/output"
 mkdir -p "$OUT" "$PKG"
 
-echo "==> Restoring solution…"
-dotnet restore PES3-Disc.sln
+# Linux bundle only — skip net8.0-windows WPF (PES3-Disc.App) and Windows DumpCli.
+LINUX_PROJECTS=(
+  "src/PES3-Disc.Avalonia/PES3-Disc.Avalonia.csproj"
+  "src/PES3-Disc.Cli/PES3-Disc.Cli.csproj"
+)
+DISC_DUMPER="$ROOT/external/ps3-disc-dumper/Ps3DiscDumper/Ps3DiscDumper.csproj"
+if [[ -f "$DISC_DUMPER" ]]; then
+  LINUX_PROJECTS+=("tools/PES3-Disc.LinuxDump/PES3-Disc.LinuxDump.csproj")
+fi
 
-echo "==> Compiling solution (Release)…"
-dotnet build PES3-Disc.sln -c Release --no-restore
+echo "==> Restoring Linux projects…"
+dotnet restore "${LINUX_PROJECTS[@]}"
+
+echo "==> Compiling Linux projects (Release)…"
+dotnet build "${LINUX_PROJECTS[@]}" -c Release --no-restore
 
 echo "==> Publishing PES3-Disc GUI (Avalonia, linux-x64)…"
 dotnet publish src/PES3-Disc.Avalonia/PES3-Disc.Avalonia.csproj \
@@ -23,7 +33,6 @@ dotnet publish src/PES3-Disc.Avalonia/PES3-Disc.Avalonia.csproj \
   -o "$OUT" \
   --no-restore
 
-DISC_DUMPER="$ROOT/external/ps3-disc-dumper/Ps3DiscDumper/Ps3DiscDumper.csproj"
 if [[ -f "$DISC_DUMPER" ]]; then
   echo "==> Publishing pes3-disc-dump-linux…"
   dotnet publish tools/PES3-Disc.LinuxDump/PES3-Disc.LinuxDump.csproj \
