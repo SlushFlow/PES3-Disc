@@ -57,7 +57,8 @@ public partial class SetupWindow : Window
         cfg.EnableRetailDecrypt = true;
         App.Services.SaveConfig();
 
-        var exe = Environment.ProcessPath ?? System.Reflection.Assembly.GetExecutingAssembly().Location;
+        var exe = Environment.ProcessPath
+            ?? Path.Combine(AppContext.BaseDirectory, "PES3-Disc.exe");
         if (cfg.RunAtStartup)
             StartupShortcut.Install(exe);
         else

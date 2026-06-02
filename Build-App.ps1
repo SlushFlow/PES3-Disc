@@ -90,7 +90,11 @@ if ((Test-Path -LiteralPath $dumpProj) -and $hasNet10) {
             Write-Host 'Included pes3-disc-dump.exe in dist folder.'
         }
         else {
-            Write-Host 'WARNING: pes3-disc-dump.exe build failed; retail decrypt needs .NET 10 SDK.' -ForegroundColor Yellow
+            $msg = 'pes3-disc-dump.exe build failed; retail decrypt needs .NET 10 SDK.'
+            if ($env:GITHUB_ACTIONS -eq 'true' -or $env:CI -eq 'true') {
+                throw $msg
+            }
+            Write-Host "WARNING: $msg" -ForegroundColor Yellow
         }
     }
 }
@@ -108,3 +112,6 @@ else {
     Write-Host 'Retail decrypt: install .NET 10 SDK and re-run Build-App.ps1 to add pes3-disc-dump.exe'
 }
 Write-Host 'Run PES3-Disc.exe - setup wizard, disc scan, decrypt, and play in one app.'
+
+if (-not (Test-Path -LiteralPath $exe)) { exit 1 }
+exit 0

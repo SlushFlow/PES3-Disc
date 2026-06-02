@@ -109,7 +109,7 @@ internal static class Program
         catch (Exception ex)
         {
             EmitError("error", ex.Message);
-            Log.Error(ex, "Dump failed");
+            Console.Error.WriteLine(ex);
             return 1;
         }
     }

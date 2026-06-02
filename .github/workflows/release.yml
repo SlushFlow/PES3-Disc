@@ -57,6 +57,9 @@ jobs:
             }
           }
 
+      - name: Build solution (compile check)
+        run: dotnet build PES3-Disc.sln -c Release
+
       - name: Build PES3-Disc and installer
         shell: pwsh
         env:
