@@ -6,7 +6,10 @@
 #>
 param(
     [switch]$Scan,
-    [switch]$RemoveOnly
+    [switch]$RemoveOnly,
+    [string[]]$TestVolume,
+    [switch]$NonInteractive,
+    [switch]$ClearTestVolumes
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
@@ -32,7 +35,8 @@ if ($Scan -or $RemoveOnly) {
         if ($config -and $config.ScanDelaySeconds) {
             $delay = [int]$config.ScanDelaySeconds
         }
-        Update-DiscScan -DelaySeconds $(if ($RemoveOnly) { 0 } else { $delay }) -RemoveOnly:$RemoveOnly
+        Update-DiscScan -DelaySeconds $(if ($RemoveOnly) { 0 } else { $delay }) -RemoveOnly:$RemoveOnly `
+            -TestVolumeRoots $TestVolume -NonInteractive:$NonInteractive -ClearTestVolumes:$ClearTestVolumes
     }
     finally {
         if (-not $RemoveOnly) {

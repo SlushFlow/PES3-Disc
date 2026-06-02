@@ -9,23 +9,49 @@ $Script:LogPath = Join-Path $Script:Root 'disc-run.log'
 $Script:ConfigCache = $null
 $Script:ConfigCacheTime = $null
 $Script:WinFormsLoaded = $false
+$Script:NonInteractive = $false
+$Script:OverrideLogPath = $false
+$Script:OverridePromptedVolumesPath = $false
 
 function Write-Log {
     param([string]$Message)
     $line = '{0:yyyy-MM-dd HH:mm:ss} {1}' -f (Get-Date), $Message
+    $path = $script:LogPath
+    if (-not $path) { return }
     try {
-        $logDir = Split-Path -LiteralPath $Script:LogPath -Parent
+        $logDir = Split-Path -LiteralPath $path -Parent
         if ($logDir -and -not (Test-Path -LiteralPath $logDir)) {
             New-Item -ItemType Directory -Path $logDir -Force | Out-Null
         }
-        Add-Content -Path $Script:LogPath -Value $line -Encoding UTF8
+        [System.IO.File]::AppendAllText($path, $line + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
     }
-    catch { }
+    catch {
+        # Last resort for locked paths
+        try { Add-Content -LiteralPath $path -Value $line -Encoding UTF8 -ErrorAction Stop } catch { }
+    }
 }
 
 function Clear-ConfigCache {
     $Script:ConfigCache = $null
     $Script:ConfigCacheTime = $null
+}
+
+function Set-Pes3DiscRuntimeOptions {
+    param(
+        [string]$LogPath = '',
+        [string]$PromptedVolumesPath = '',
+        [switch]$LockLogPath,
+        [switch]$LockPromptedVolumesPath
+    )
+
+    if ($LogPath) { $script:LogPath = $LogPath }
+    if ($PromptedVolumesPath) { $script:PromptedVolumesPath = $PromptedVolumesPath }
+    if ($LockLogPath) { $script:OverrideLogPath = $true }
+    if ($LockPromptedVolumesPath) { $script:OverridePromptedVolumesPath = $true }
+}
+
+function Get-Pes3LogPath {
+    return $script:LogPath
 }
 
 function Ensure-WinFormsLoaded {
@@ -36,11 +62,11 @@ function Ensure-WinFormsLoaded {
 }
 
 function Get-PromptedVolumes {
-    if (-not (Test-Path -LiteralPath $Script:PromptedVolumesPath)) {
+    if (-not (Test-Path -LiteralPath $script:PromptedVolumesPath)) {
         return @{}
     }
     try {
-        $list = Get-Content -LiteralPath $Script:PromptedVolumesPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $list = Get-Content -LiteralPath $script:PromptedVolumesPath -Raw -Encoding UTF8 | ConvertFrom-Json
         $hash = @{}
         foreach ($id in $list) { $hash[$id] = $true }
         return $hash
@@ -53,7 +79,8 @@ function Get-PromptedVolumes {
 function Set-PromptedVolumes {
     param([hashtable]$Volumes)
     $list = @($Volumes.Keys)
-    ($list | ConvertTo-Json) | Set-Content -LiteralPath $Script:PromptedVolumesPath -Encoding UTF8
+    $json = if ($list.Count -gt 0) { $list | ConvertTo-Json } else { '[]' }
+    $json | Set-Content -LiteralPath $script:PromptedVolumesPath -Encoding UTF8
 }
 
 function Get-Config {
@@ -128,8 +155,12 @@ function Initialize-Pes3DataPaths {
     }
 
     $Script:Pes3Root = $pes3
-    $Script:LogPath = Join-Path $pes3 'logs\disc-run.log'
-    $Script:PromptedVolumesPath = Join-Path $pes3 'state\prompted-volumes.json'
+    if (-not $Script:OverrideLogPath) {
+        $Script:LogPath = Join-Path $pes3 'logs\disc-run.log'
+    }
+    if (-not $Script:OverridePromptedVolumesPath) {
+        $Script:PromptedVolumesPath = Join-Path $pes3 'state\prompted-volumes.json'
+    }
     $Script:PathsInitialized = $true
     Remove-StalePes3CleanupJobs
     return $true
@@ -957,7 +988,7 @@ function Get-OpticalDrives {
                 Id     = $id
             }
         }
-        if ($drives.Count -gt 0) { return $drives }
+        if ($drives.Count -gt 0) { return [object[]]$drives }
     }
     catch { }
 
@@ -977,7 +1008,7 @@ function Get-OpticalDrives {
         }
         catch { }
     }
-    return $drives
+    return [object[]]$drives
 }
 
 function Start-Rpcs3Game {
@@ -1010,6 +1041,31 @@ function Start-Rpcs3Game {
     return $proc
 }
 
+function Get-TestVolumeDrives {
+    param([string[]]$Roots)
+
+    $drives = @()
+    $index = 0
+    foreach ($root in $Roots) {
+        if (-not $root) { continue }
+        $full = $root.Trim().TrimEnd('\')
+        if (-not (Test-Path -LiteralPath $full)) { continue }
+        try {
+            $full = (Resolve-Path -LiteralPath $full).Path
+        }
+        catch { }
+        if (-not $full.EndsWith('\')) { $full = $full + '\' }
+        $leaf = Split-Path $full.TrimEnd('\') -Leaf
+        $drives += @{
+            Letter = [char](65 + ($index % 26))
+            Root   = $full
+            Id     = "TESTVOL|$index|$leaf"
+        }
+        $index++
+    }
+    return [object[]]$drives
+}
+
 function Invoke-DiscPrompt {
     param(
         [hashtable]$Drive,
@@ -1021,6 +1077,12 @@ function Invoke-DiscPrompt {
         return $PromptedVolumes
     }
     $PromptedVolumes[$Drive.Id] = $true
+
+    if ($Script:NonInteractive) {
+        $title = if ($Game.Title) { $Game.Title } else { 'PS3 game' }
+        Write-Log "NonInteractive: playable game on $($Drive.Letter): $title -> $($Game.Eboot)"
+        return $PromptedVolumes
+    }
 
     Ensure-WinFormsLoaded
 
@@ -1235,6 +1297,14 @@ function Invoke-RetailDiscDecrypt {
         [hashtable]$Drive,
         [hashtable]$PromptedVolumes
     )
+
+    if ($Script:NonInteractive) {
+        if (-not $PromptedVolumes.ContainsKey($Drive.Id)) {
+            Write-Log "NonInteractive: retail decrypt path on $($Drive.Letter): ( $($Drive.Root) )"
+            $PromptedVolumes[$Drive.Id] = $true
+        }
+        return $PromptedVolumes
+    }
 
     $dumpCli = Get-DumpCliPath
     if (-not $dumpCli) {
@@ -1461,14 +1531,33 @@ function Test-DecryptUnknownDisc {
 function Update-DiscScan {
     param(
         [int]$DelaySeconds = 3,
-        [switch]$RemoveOnly
+        [switch]$RemoveOnly,
+        [string[]]$TestVolumeRoots = @(),
+        [switch]$NonInteractive,
+        [switch]$ClearTestVolumes
     )
 
+    $Script:NonInteractive = [bool]$NonInteractive
     $prompted = Get-PromptedVolumes
 
     if ($RemoveOnly) {
+        if ($ClearTestVolumes) {
+            foreach ($key in @($prompted.Keys)) {
+                if ($key.StartsWith('TESTVOL|')) {
+                    $prompted.Remove($key) | Out-Null
+                    Write-Log "Volume removed, reset prompt state: $key"
+                }
+            }
+        }
+
         $present = @{}
-        foreach ($d in Get-OpticalDrives) { $present[$d.Id] = $true }
+        $volumeList = if ($TestVolumeRoots.Count -gt 0) {
+            Get-TestVolumeDrives -Roots $TestVolumeRoots
+        }
+        else {
+            Get-OpticalDrives
+        }
+        foreach ($d in $volumeList) { $present[$d.Id] = $true }
         foreach ($key in @($prompted.Keys)) {
             if (-not $present.ContainsKey($key)) {
                 $prompted.Remove($key) | Out-Null
@@ -1485,21 +1574,36 @@ function Update-DiscScan {
         Start-Sleep -Seconds $DelaySeconds
     }
 
-    foreach ($drive in Get-OpticalDrives) {
+    if ($TestVolumeRoots.Count -gt 0) {
+        $driveList = @(Get-TestVolumeDrives -Roots $TestVolumeRoots)
+    }
+    else {
+        $driveList = @(Get-OpticalDrives)
+    }
+
+    Write-Log "Scan: $($driveList.Count) volume(s) (testRoots=$($TestVolumeRoots.Count), nonInteractive=$($Script:NonInteractive))"
+
+    foreach ($drive in $driveList) {
         $status = Get-Ps3DiscVolumeStatus -DriveRoot $drive.Root
         switch ($status.Kind) {
             'Playable' {
-                Write-Log "Found PS3 game on $($drive.Letter): $($status.Game.Eboot)"
+                if (-not $prompted.ContainsKey($drive.Id)) {
+                    Write-Log "Found PS3 game on $($drive.Letter): $($status.Game.Eboot)"
+                }
                 $prompted = Invoke-DiscPrompt -Drive $drive -Game $status.Game -PromptedVolumes $prompted
             }
             'EncryptedRetail' {
-                Write-Log "Drive $($drive.Letter): $($status.Message)"
+                if (-not $prompted.ContainsKey($drive.Id)) {
+                    Write-Log "Drive $($drive.Letter): $($status.Message)"
+                }
                 if (Test-RetailDecryptEnabled) {
                     $prompted = Invoke-RetailDiscDecrypt -Drive $drive -PromptedVolumes $prompted
                 }
             }
             'IncompleteBurn' {
-                Write-Log "Drive $($drive.Letter): $($status.Message)"
+                if (-not $prompted.ContainsKey($drive.Id)) {
+                    Write-Log "Drive $($drive.Letter): $($status.Message)"
+                }
                 if (Test-RetailDecryptEnabled) {
                     $prompted = Invoke-RetailDiscDecrypt -Drive $drive -PromptedVolumes $prompted
                 }

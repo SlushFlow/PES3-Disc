@@ -43,6 +43,23 @@ Run layout tests anytime:
 powershell -ExecutionPolicy Bypass -File Test-Ps3DiscDetection.ps1
 ```
 
+### Test disc fixtures (no real game data)
+
+Simulated DIY and retail layouts under `test-fixtures/`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File test-fixtures\Build-TestFixtures.ps1
+powershell -ExecutionPolicy Bypass -File Test-PES3-Integration.ps1        # ~10+ min
+powershell -ExecutionPolicy Bypass -File Test-PES3-Integration.ps1 -Quick  # ~2 min smoke test
+```
+
+Scan fixtures without a burner drive:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File DiscRun.ps1 -Scan -NonInteractive `
+  -TestVolume ".\test-fixtures\diy-demo-disc", ".\test-fixtures\retail-encrypted-disc"
+```
+
 ## Quick start
 
 1. [Download or clone](https://github.com/SlushFlow/PES3-Disc) this repo.
