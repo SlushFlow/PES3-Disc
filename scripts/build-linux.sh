@@ -61,9 +61,13 @@ fi
 
 if [[ -f src/PES3-Disc.Cli/PES3-Disc.Cli.csproj ]]; then
   echo "==> Publishing optional pes3-disc-cli…"
+  CLI_STAGE="$ROOT/dist/cli-publish"
+  rm -rf "$CLI_STAGE"
   dotnet publish src/PES3-Disc.Cli/PES3-Disc.Cli.csproj \
     -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true \
-    -o "$OUT" -p:AssemblyName=pes3-disc-cli --no-restore || true
+    -o "$CLI_STAGE"
+  cp -f "$CLI_STAGE/pes3-disc-cli" "$OUT/"
+  rm -rf "$CLI_STAGE"
 fi
 
 [[ -f packaging/linux/install.sh ]] && cp packaging/linux/install.sh "$OUT/" && chmod +x "$OUT/install.sh"

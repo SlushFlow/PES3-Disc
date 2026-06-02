@@ -5,7 +5,7 @@
     <LangVersion>13.0</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>pes3-disc</AssemblyName>
+    <AssemblyName>pes3-disc-cli</AssemblyName>
     <RootNamespace>PES3Disc.Cli</RootNamespace>
     <Version>1.0.0</Version>
     <Description>PES3-Disc for Linux — PS3 discs in RPCS3 (CLI)</Description>
