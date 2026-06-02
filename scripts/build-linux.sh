@@ -18,11 +18,15 @@ if [[ -f "$DISC_DUMPER" ]]; then
   LINUX_PROJECTS+=("tools/PES3-Disc.LinuxDump/PES3-Disc.LinuxDump.csproj")
 fi
 
-echo "==> Restoring Linux projects…"
-dotnet restore "${LINUX_PROJECTS[@]}"
+for proj in "${LINUX_PROJECTS[@]}"; do
+  echo "==> Restore $proj"
+  dotnet restore "$proj" -r linux-x64
+done
 
-echo "==> Compiling Linux projects (Release)…"
-dotnet build "${LINUX_PROJECTS[@]}" -c Release --no-restore
+for proj in "${LINUX_PROJECTS[@]}"; do
+  echo "==> Build $proj"
+  dotnet build "$proj" -c Release -r linux-x64 --no-restore
+done
 
 echo "==> Publishing PES3-Disc GUI (Avalonia, linux-x64)…"
 dotnet publish src/PES3-Disc.Avalonia/PES3-Disc.Avalonia.csproj \
