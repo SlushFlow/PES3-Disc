@@ -7,13 +7,15 @@ PROJ="$ROOT/external/ps3-disc-dumper/Ps3DiscDumper/Ps3DiscDumper.csproj"
 
 [[ -f "$DUMPER" ]] || { echo "SKIP: $DUMPER not found"; exit 0; }
 
-python3 <<PY
+export DUMPER PROJ
+python3 <<'PY'
+import os
 import re
 import sys
 from pathlib import Path
 
-dumper = Path(r"$DUMPER")
-proj = Path(r"$PROJ")
+dumper = Path(os.environ["DUMPER"])
+proj = Path(os.environ["PROJ"])
 text = dumper.read_text(encoding="utf-8")
 
 if "#if PES3_LINUX_BUILD" not in text:
@@ -59,14 +61,16 @@ dumper.write_text(text, encoding="utf-8")
 if proj.is_file():
     ptext = proj.read_text(encoding="utf-8")
     if "WmiLight" in ptext and "IsOSPlatform('Windows')" not in ptext:
+        wmilight_condition = ' Condition="$([MSBuild]::IsOSPlatform(\'Windows\'))" />'
+
         def add_condition(match: re.Match[str]) -> str:
             tag = match.group(0)
             if "Condition=" in tag:
                 return tag
-            return tag[:-2] + ' Condition="$([MSBuild]::IsOSPlatform(\'Windows\'))" />'
+            return tag[:-2] + wmilight_condition
 
         ptext, n = re.subn(
-            r"<PackageReference Include=\"WmiLight\"[^>]*/>",
+            r'<PackageReference Include="WmiLight"[^>]*/>',
             add_condition,
             ptext,
             count=1,
