@@ -37,9 +37,14 @@ if (-not $iscc) {
     exit 0
 }
 
-$versionDefine = ''
-if ($env:PES3_VERSION) {
-    $versionDefine = "/DMyAppVersion=$($env:PES3_VERSION)"
+$distDir = Join-Path $root 'dist'
+if (-not (Test-Path -LiteralPath (Join-Path $distDir 'PES3-Disc.exe'))) {
+    throw "dist\PES3-Disc.exe missing before Inno compile."
+}
+
+$appVersion = '1.0.0'
+if ($env:PES3_VERSION -match '^(\d+\.\d+\.\d+)$') {
+    $appVersion = $Matches[1]
 }
 
 if (Test-Path -LiteralPath $outDir) {
@@ -47,8 +52,40 @@ if (Test-Path -LiteralPath $outDir) {
 }
 New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
-& $iscc $versionDefine $iss
-if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compile failed.' }
+$logPath = Join-Path $outDir 'iscc.log'
+$isccArgs = @(
+    "/DMyAppVersion=$appVersion",
+    "/O$outDir",
+    "/Log=$logPath",
+    '/Qp',
+    (Split-Path -Leaf $iss)
+)
+
+Write-Host "ISCC: $iscc $($isccArgs -join ' ')"
+Push-Location $installerDir
+try {
+    $attempt = 0
+    do {
+        $attempt++
+        & $iscc @isccArgs
+        if ($LASTEXITCODE -eq 0) { break }
+        if ($attempt -lt 3) {
+            Write-Host "Inno compile failed (exit $LASTEXITCODE), retry $attempt/3..." -ForegroundColor Yellow
+            Start-Sleep -Seconds 3
+        }
+    } while ($attempt -lt 3)
+}
+finally {
+    Pop-Location
+}
+
+if ($LASTEXITCODE -ne 0) {
+    if (Test-Path -LiteralPath $logPath) {
+        Write-Host '--- ISCC log ---' -ForegroundColor Red
+        Get-Content -LiteralPath $logPath | Write-Host
+    }
+    throw 'Inno Setup compile failed.'
+}
 
 $setup = Get-ChildItem -LiteralPath $outDir -Filter 'PES3-Disc-Setup*.exe' | Select-Object -First 1
 Write-Host ''

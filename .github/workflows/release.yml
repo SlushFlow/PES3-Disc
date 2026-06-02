@@ -68,6 +68,14 @@ jobs:
         run: |
           ./Build-Installer.ps1
 
+      - name: Upload Inno log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inno-build-log
+          path: installer/output/iscc.log
+          if-no-files-found: ignore
+
       - name: Create portable ZIP
         shell: pwsh
         run: |
