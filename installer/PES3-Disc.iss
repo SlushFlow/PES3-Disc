@@ -66,11 +66,11 @@ end;
 function DownloadRuntime(const Url, FileName: string; var ErrorCode: Integer): Boolean;
 begin
   WizardForm.StatusLabel.Caption := 'Downloading ' + FileName + '...';
-  WizardForm.ProgressBar.Style := npbstMarquee;
+  WizardForm.ProgressGauge.Style := npbstMarquee;
   try
     Result := DownloadTemporaryFile(Url, FileName, '', @ErrorCode);
   finally
-    WizardForm.ProgressBar.Style := npbstNormal;
+    WizardForm.ProgressGauge.Style := npbstNormal;
   end;
 end;
 

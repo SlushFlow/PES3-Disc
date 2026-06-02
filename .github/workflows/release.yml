@@ -45,6 +45,14 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
+      - name: Verify ISCC on PATH
+        shell: pwsh
+        run: |
+          $iscc = Get-Command iscc -ErrorAction SilentlyContinue
+          if (-not $iscc) { throw 'iscc not on PATH after Inno Setup install' }
+          Write-Host "ISCC: $($iscc.Source)"
+          & iscc /?
+
       - name: Validate PowerShell scripts
         shell: pwsh
         run: |
