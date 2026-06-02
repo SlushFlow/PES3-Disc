@@ -1,74 +1,77 @@
 # PES3-Disc on Linux
 
-Run PS3 discs in [RPCS3](https://rpcs3.net/) on Linux with the same **PES3 cache** as Windows (DIY copy + retail decrypt to SSD).
+Full **desktop GUI** (Avalonia, same workflow as Windows) plus a **separate Linux retail dumper** (`pes3-disc-dump-linux`).
 
 ## Requirements
 
-- **Linux x64** (Ubuntu 22.04+, Fedora, Arch, etc.)
-- **RPCS3** installed (`rpcs3` on `PATH` or `~/.local/share/rpcs3/rpcs3`)
-- Disc mounted read-only under **`/media/$USER/…`** or **`/run/media/$USER/…`** (typical udisks layout)
-- For **retail decrypt**: compatible drive, `pes3-disc-dump` in the bundle (needs .NET 10 to build), IRD keys
+- **Linux x64**, .NET 8 runtime (bundled in release tarball)
+- **RPCS3** for Linux (`rpcs3` on `PATH` or `~/.local/share/rpcs3/rpcs3`)
+- PS3 disc mounted under **`/media/$USER/…`** or **`/run/media/$USER/…`**
+- Retail decrypt: `pes3-disc-dump-linux`, compatible BD drive, IRD keys, membership in the **`disk`** group (or run with access to `/dev/sr0`)
 
 Optional: `rsync` for faster cache copies.
 
-## Install from release
+## Download
 
-Download **`PES3-Disc-linux-x64.tar.gz`** from [GitHub Releases](https://github.com/SlushFlow/PES3-Disc/releases).
+From [GitHub Releases](https://github.com/SlushFlow/PES3-Disc/releases): **`PES3-Disc-linux-x64.tar.gz`**
 
 ```bash
-tar -xzf PES3-Disc-linux-x64.tar.gz
-cd PES3-Disc-linux-x64   # or extract into a folder of your choice
+tar -xzf PES3-Disc-linux-x64.tar.gz -C ~/.local/opt
+cd ~/.local/opt   # folder containing PES3-Disc, pes3-disc-dump-linux, install.sh
 ./install.sh
 export PATH="$HOME/.local/bin:$PATH"
-pes3-disc setup "$(which rpcs3)"
+PES3-Disc   # or: pes3-disc
 ```
 
-## Build locally
+First launch opens **Setup** (RPCS3 path, cache options).
+
+## GUI (Avalonia)
+
+Same screens as Windows WPF:
+
+| Screen | Purpose |
+|--------|---------|
+| **Setup** | RPCS3 path, cache mode, retail decrypt |
+| **Home** | Scan drives, **Play** / **Play from cache** / **Decrypt & play** |
+| **Stage** | Copy DIY disc to PES3 cache |
+| **Decrypt** | Retail decrypt progress |
+| **Settings** | Cache path, `pes3-disc-dump-linux` path, IRD folder |
+
+Built with **Avalonia UI** (not WPF — Windows-only).
+
+## Linux retail dump (separate from Windows)
+
+| | Windows | Linux |
+|---|---------|-------|
+| Tool | `pes3-disc-dump.exe` | **`pes3-disc-dump-linux`** |
+| Project | `PES3-Disc.DumpCli` | **`PES3-Disc.LinuxDump`** |
+| Drive access | Drive letter + WMI | **`/dev/sr*`** + mounts |
+
+The Linux tool uses the PS3 Disc Dumper **engine** with Linux block-device enumeration (`/proc/sys/dev/cdrom/info`, `/dev/sr*`). It is **not** the same executable as Windows.
+
+Manual CLI example:
+
+```bash
+pes3-disc-dump-linux --output /tmp/ps3dump --mount /run/media/$USER/MY_DISC --device /dev/sr0
+```
+
+## Headless CLI (optional)
+
+`pes3-disc-cli` may be included for scripting (`scan`, `play`, `decrypt`). The **GUI is the recommended** Linux experience.
+
+## Build from source
 
 ```bash
 git clone https://github.com/SlushFlow/PES3-Disc.git
 cd PES3-Disc
 git clone --depth 1 https://github.com/13xforever/ps3-disc-dumper.git external/ps3-disc-dumper
-./scripts/Apply-Ps3DiscDumperBuildProps.ps1   # needs PowerShell, or copy build/ps3-disc-dumper.Directory.Build.props manually
-chmod +x scripts/build-linux.sh
+cp build/ps3-disc-dumper.Directory.Build.props external/ps3-disc-dumper/
+chmod +x scripts/build-linux.sh scripts/patch-ps3-disc-dumper-for-linux.sh
 ./scripts/build-linux.sh
-./dist/linux-x64/pes3-disc setup "$(which rpcs3)"
 ```
 
-## Commands
+## Config
 
-| Command | Description |
-|---------|-------------|
-| `pes3-disc` | Watch mounted volumes (interactive prompts) |
-| `pes3-disc scan` | List PS3 volumes once |
-| `pes3-disc play 0` | Play index `0` from last scan |
-| `pes3-disc decrypt 0` | Decrypt retail disc and play |
-| `pes3-disc setup /path/to/rpcs3` | Save RPCS3 path |
-| `pes3-disc config` | Show paths and options |
+`~/.config/PES3-Disc/config.json` — set `DumpCliPath` to your `pes3-disc-dump-linux` if not beside the GUI binary.
 
-Config file: `~/.config/PES3-Disc/config.json` (same fields as `config.example.json`).
-
-PES3 data: `<rpcs3-install-dir>/PES3/cache` (or custom `DumpCachePath`).
-
-## Disc detection on Linux
-
-PES3-Disc scans:
-
-- `DriveInfo` CD-ROM mounts
-- `/proc/mounts` for `/dev/sr*` + udf/iso9660
-- `/media/*` and `/run/media/*`
-
-Insert a disc and wait for the desktop to mount it, then run `pes3-disc scan`.
-
-## Retail decrypt on Linux
-
-Uses `pes3-disc-dump --mount /run/media/user/DiscName` (same engine as Windows). Drive access and IRD requirements match [RETAIL-DECRYPT.md](RETAIL-DECRYPT.md).
-
-## Windows vs Linux
-
-| Feature | Windows | Linux |
-|---------|---------|-------|
-| GUI (`PES3-Disc.exe`) | Yes | CLI only (`pes3-disc`) |
-| Installer | Inno Setup | `.tar.gz` + `install.sh` |
-| Unified PES3 cache | Yes | Yes |
-| DIY staging | Yes | Yes (`rsync` or managed copy) |
+PES3 cache: `<rpcs3-dir>/PES3/cache` (same layout as Windows).

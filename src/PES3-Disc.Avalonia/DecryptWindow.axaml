@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PES3Disc.Avalonia.DecryptWindow"
+        Title="Decrypting PS3 disc"
+        Width="480" Height="280"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#0F1419">
+  <StackPanel Margin="24" Spacing="12">
+    <TextBlock x:Name="TitleText" FontSize="18" FontWeight="SemiBold" Foreground="#E8EDF4"/>
+    <TextBlock x:Name="DetailText" Classes="muted" TextWrapping="Wrap"
+               Text="This may take 30–90+ minutes for large games."/>
+    <ProgressBar x:Name="ProgressBar" IsIndeterminate="True" Minimum="0" Maximum="100"/>
+    <TextBlock x:Name="PercentText" Classes="muted"/>
+    <Button Classes="secondary" Content="Cancel" HorizontalAlignment="Right" Click="Cancel_Click"/>
+  </StackPanel>
+</Window>

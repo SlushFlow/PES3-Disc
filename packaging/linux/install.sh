@@ -7,9 +7,10 @@ SHARE="$DEST/share"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 mkdir -p "$BIN" "$SHARE/applications" "$SHARE/doc/pes3-disc"
-install -m 755 "$SCRIPT_DIR/pes3-disc" "$BIN/pes3-disc"
-if [[ -f "$SCRIPT_DIR/pes3-disc-dump" ]]; then
-  install -m 755 "$SCRIPT_DIR/pes3-disc-dump" "$BIN/pes3-disc-dump"
+install -m 755 "$SCRIPT_DIR/PES3-Disc" "$BIN/PES3-Disc"
+ln -sf PES3-Disc "$BIN/pes3-disc" 2>/dev/null || true
+if [[ -f "$SCRIPT_DIR/pes3-disc-dump-linux" ]]; then
+  install -m 755 "$SCRIPT_DIR/pes3-disc-dump-linux" "$BIN/pes3-disc-dump-linux"
 fi
 if [[ -f "$SCRIPT_DIR/pes3-disc.desktop" ]]; then
   sed "s|@BINDIR@|$BIN|g" "$SCRIPT_DIR/pes3-disc.desktop" > "$SHARE/applications/pes3-disc.desktop"

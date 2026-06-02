@@ -1,6 +1,9 @@
-<!-- Applied to cloned external/ps3-disc-dumper (upstream warnings only). -->
+<!-- Applied to cloned external/ps3-disc-dumper -->
 <Project>
   <PropertyGroup>
     <NoWarn>$(NoWarn);CS0612;CS8632</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('linux'))">
+    <DefineConstants>$(DefineConstants);PES3_LINUX_BUILD</DefineConstants>
   </PropertyGroup>
 </Project>

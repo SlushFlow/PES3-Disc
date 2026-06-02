@@ -1,0 +1,22 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PES3Disc.Avalonia.SetupWindow"
+        Title="PES3-Disc Setup"
+        Width="520" Height="400"
+        WindowStartupLocation="CenterScreen"
+        CanResize="False"
+        Background="#0F1419">
+  <StackPanel Margin="24" Spacing="16">
+    <TextBlock Text="Welcome to PES3-Disc" FontSize="22" FontWeight="Bold" Foreground="#E8EDF4"/>
+    <TextBlock Classes="muted" TextWrapping="Wrap"
+               Text="Point PES3-Disc at your RPCS3 install. On Linux this is usually ~/.local/share/rpcs3/rpcs3 or /usr/bin/rpcs3."/>
+    <TextBox x:Name="Rpcs3Box" Watermark="Path to rpcs3 executable"/>
+    <Button Classes="secondary" Content="Browse…" Click="Browse_Click" HorizontalAlignment="Left"/>
+    <CheckBox x:Name="DeleteCacheCheck" Content="Delete cache when RPCS3 exits" Foreground="#E8EDF4"/>
+    <CheckBox x:Name="RetailCheck" Content="Offer retail disc decryption" IsChecked="True" Foreground="#E8EDF4"/>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button Classes="secondary" Content="Quit" Click="Quit_Click"/>
+      <Button Classes="primary" Content="Continue" Click="Continue_Click"/>
+    </StackPanel>
+  </StackPanel>
+</Window>

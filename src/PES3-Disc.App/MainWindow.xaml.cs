@@ -173,7 +173,7 @@ public partial class MainWindow : Window
                 if (!App.Services.Decryptor.IsAvailable)
                 {
                     dec.IsEnabled = false;
-                    dec.ToolTip = "Build pes3-disc-dump.exe (re-run Build-App.ps1 with .NET 10 SDK).";
+                    dec.ToolTip = "Build pes3-disc-dump.exe (re-run Build-App.ps1 with .NET 10 SDK). Not used on Linux.";
                 }
                 dec.Click += async (_, _) => await DecryptAndPlayAsync(drive);
                 actions.Children.Add(dec);

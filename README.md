@@ -15,7 +15,7 @@ When you insert a PS3 game disc (or a burned disc with the standard PS3 folder l
 | Platform | Artifact |
 |----------|----------|
 | **Windows** | `PES3-Disc-Setup.exe` (installer) + portable ZIP |
-| **Linux** | `PES3-Disc-linux-x64.tar.gz` — CLI `pes3-disc` ([guide](docs/LINUX.md)) |
+| **Linux** | `PES3-Disc-linux-x64.tar.gz` — **Avalonia GUI** + `pes3-disc-dump-linux` ([guide](docs/LINUX.md)) |
 
 The installer sets up the app plus **.NET 8** and **.NET 10** Desktop Runtimes (internet required during install).
 

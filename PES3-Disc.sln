@@ -8,6 +8,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PES3-Disc.DumpCli", "tools\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PES3-Disc.Cli", "src\PES3-Disc.Cli\PES3-Disc.Cli.csproj", "{A1B2C3D4-1111-4000-8000-000000000004}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PES3-Disc.ViewModels", "src\PES3-Disc.ViewModels\PES3-Disc.ViewModels.csproj", "{A1B2C3D4-1111-4000-8000-000000000005}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PES3-Disc.Avalonia", "src\PES3-Disc.Avalonia\PES3-Disc.Avalonia.csproj", "{A1B2C3D4-1111-4000-8000-000000000006}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PES3-Disc.LinuxDump", "tools\PES3-Disc.LinuxDump\PES3-Disc.LinuxDump.csproj", "{A1B2C3D4-1111-4000-8000-000000000007}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +36,17 @@ Global
 		{A1B2C3D4-1111-4000-8000-000000000004}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A1B2C3D4-1111-4000-8000-000000000004}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A1B2C3D4-1111-4000-8000-000000000004}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000005}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000005}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000005}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000005}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000006}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000006}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000006}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000006}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000007}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000007}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000007}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-1111-4000-8000-000000000007}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
