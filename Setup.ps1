@@ -77,6 +77,8 @@ function Invoke-Pes3RetailDecryptSetup {
         if ($LASTEXITCODE -ne 0) { throw 'Failed to clone ps3-disc-dumper.' }
     }
 
+    & (Join-Path $root 'scripts\Apply-Ps3DiscDumperBuildProps.ps1')
+
     $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
     if (-not $dotnet) {
         throw '.NET SDK not found. Install .NET 10 SDK from https://dotnet.microsoft.com/download'

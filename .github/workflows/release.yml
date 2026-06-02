@@ -41,6 +41,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path external -Force | Out-Null
           git clone --depth 1 https://github.com/13xforever/ps3-disc-dumper.git external/ps3-disc-dumper
+          ./scripts/Apply-Ps3DiscDumperBuildProps.ps1
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y

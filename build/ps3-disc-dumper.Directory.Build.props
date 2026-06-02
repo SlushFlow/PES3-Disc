@@ -1,0 +1,6 @@
+<!-- Applied to cloned external/ps3-disc-dumper (upstream warnings only). -->
+<Project>
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);CS0612;CS8632</NoWarn>
+  </PropertyGroup>
+</Project>

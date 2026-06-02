@@ -84,6 +84,7 @@ if ((Test-Path -LiteralPath $dumpProj) -and $hasNet10) {
         & $git clone --depth 1 https://github.com/13xforever/ps3-disc-dumper.git $submodule
     }
     if (Test-Path -LiteralPath $discDumperProj) {
+        & (Join-Path $root 'scripts\Apply-Ps3DiscDumperBuildProps.ps1')
         Write-Host 'Building pes3-disc-dump.exe (retail decrypt)...'
         & dotnet publish $dumpProj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $out
         if ($LASTEXITCODE -eq 0) {
