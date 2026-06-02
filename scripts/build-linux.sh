@@ -14,18 +14,25 @@ LINUX_PROJECTS=(
   "src/PES3-Disc.Cli/PES3-Disc.Cli.csproj"
 )
 DISC_DUMPER="$ROOT/external/ps3-disc-dumper/Ps3DiscDumper/Ps3DiscDumper.csproj"
+LINUX_DUMP_PROJ="tools/PES3-Disc.LinuxDump/PES3-Disc.LinuxDump.csproj"
+LINUX_DUMP_PROPS=()
 if [[ -f "$DISC_DUMPER" ]]; then
-  LINUX_PROJECTS+=("tools/PES3-Disc.LinuxDump/PES3-Disc.LinuxDump.csproj")
+  LINUX_PROJECTS+=("$LINUX_DUMP_PROJ")
+  LINUX_DUMP_PROPS=(-p:DefineConstants="PES3_LINUX_BUILD")
 fi
 
 for proj in "${LINUX_PROJECTS[@]}"; do
   echo "==> Restore $proj"
-  dotnet restore "$proj" -r linux-x64
+  extra=()
+  [[ "$proj" == "$LINUX_DUMP_PROJ" ]] && extra=("${LINUX_DUMP_PROPS[@]}")
+  dotnet restore "$proj" -r linux-x64 "${extra[@]}"
 done
 
 for proj in "${LINUX_PROJECTS[@]}"; do
   echo "==> Build $proj"
-  dotnet build "$proj" -c Release -r linux-x64 --no-restore
+  extra=()
+  [[ "$proj" == "$LINUX_DUMP_PROJ" ]] && extra=("${LINUX_DUMP_PROPS[@]}")
+  dotnet build "$proj" -c Release -r linux-x64 --no-restore "${extra[@]}"
 done
 
 echo "==> Publishing PES3-Disc GUI (Avalonia, linux-x64)…"
@@ -44,6 +51,7 @@ if [[ -f "$DISC_DUMPER" ]]; then
     -r linux-x64 \
     --self-contained true \
     -p:PublishSingleFile=true \
+    -p:DefineConstants="PES3_LINUX_BUILD" \
     -o "$OUT" \
     --no-restore
   echo "Included pes3-disc-dump-linux"

@@ -141,6 +141,8 @@ jobs:
           chmod +x scripts/patch-ps3-disc-dumper-for-linux.sh
           ./scripts/patch-ps3-disc-dumper-for-linux.sh
           grep -q '#if PES3_LINUX_BUILD' external/ps3-disc-dumper/Ps3DiscDumper/Dumper.cs
+          grep -q '#if !PES3_LINUX_BUILD' external/ps3-disc-dumper/Ps3DiscDumper/Dumper.cs
+          grep -q "IsOSPlatform('Windows')" external/ps3-disc-dumper/Ps3DiscDumper/Ps3DiscDumper.csproj
 
       - name: Build Linux bundle
         run: |
