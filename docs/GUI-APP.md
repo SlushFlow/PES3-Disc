@@ -6,8 +6,10 @@ The recommended way to use PES3-Disc is **`PES3-Disc.exe`** — one Windows app 
 
 Requirements:
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- Git (to fetch `ps3-disc-dumper` on first build)
+- [.NET 8 SDK](https://dotnet.microsoft.com/download) or newer (builds the GUI)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) optional (builds `pes3-disc-dump.exe` for retail discs)
+- Git (to fetch `ps3-disc-dumper` when building retail decrypt)
+- WPF workload: `dotnet workload install microsoft-net-sdk-wpf` (if publish complains about Windows desktop)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File Build-App.ps1
@@ -44,4 +46,4 @@ The GUI uses the same detection rules and PES3 folder layout as the scripts.
 
 ## Retail discs
 
-Same requirements as before: [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives), IRD keys online, and enough disk space. Decryption runs inside the app (no separate `pes3-disc-dump.exe` needed when built from source).
+Same requirements as before: [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives), IRD keys online, and enough disk space. The GUI runs `pes3-disc-dump.exe` from the same `dist\` folder (built automatically when .NET 10 SDK is installed).

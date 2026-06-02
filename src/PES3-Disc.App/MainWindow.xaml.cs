@@ -128,6 +128,11 @@ public partial class MainWindow : Window
             if (App.Services.Config.EnableRetailDecrypt)
             {
                 var dec = new Button { Content = "Decrypt & play", Style = (Style)FindResource("PrimaryButton") };
+                if (!App.Services.Decryptor.IsAvailable)
+                {
+                    dec.IsEnabled = false;
+                    dec.ToolTip = "Build pes3-disc-dump.exe (re-run Build-App.ps1 with .NET 10 SDK).";
+                }
                 dec.Click += async (_, _) => await DecryptAndPlayAsync(drive);
                 actions.Children.Add(dec);
             }
@@ -171,6 +176,14 @@ public partial class MainWindow : Window
     {
         if (_prompted.Contains(drive.Id))
             return;
+
+        if (!App.Services.Decryptor.IsAvailable)
+        {
+            MessageBox.Show(this,
+                "pes3-disc-dump.exe is missing from the dist folder.\n\nRe-run Build-App.ps1 (install .NET 10 SDK to include retail decrypt).",
+                "PES3-Disc", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
 
         _prompted.Add(drive.Id);
         App.Services.Prompted.Save(_prompted);

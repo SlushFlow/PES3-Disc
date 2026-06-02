@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -9,7 +9,7 @@
     <AssemblyName>PES3-Disc</AssemblyName>
     <RootNamespace>PES3Disc.App</RootNamespace>
     <Version>1.0.0</Version>
-    <Description>PlayStation Emulation Station 3 Disc — setup, decrypt, and play PS3 discs in RPCS3</Description>
+    <Description>PlayStation Emulation Station 3 Disc - setup, decrypt, and play PS3 discs in RPCS3</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PES3-Disc.Core\PES3-Disc.Core.csproj" />
