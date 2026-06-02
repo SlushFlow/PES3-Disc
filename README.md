@@ -29,7 +29,7 @@ When you insert a PS3 game disc (or a burned disc with the standard PS3 folder l
 For official discs, run **one-time** setup:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File Setup-RetailDecrypt.ps1
+powershell -ExecutionPolicy Bypass -File Setup.ps1 -RetailDecrypt
 ```
 
 Then insert the disc → confirm **Decrypt and play**. Decrypted files go under **`RPCS3\PES3\`** and are **removed when you close RPCS3** by default (saves in `dev_hdd0` are kept). Requires a [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives) and IRD keys.
@@ -48,16 +48,18 @@ powershell -ExecutionPolicy Bypass -File Test-Ps3DiscDetection.ps1
 1. [Download or clone](https://github.com/SlushFlow/PES3-Disc) this repo.
 2. Copy `config.example.json` to `config.json` and set `Rpcs3Path`, **or** run:
    ```powershell
-   powershell -ExecutionPolicy Bypass -File Setup-Config.ps1
+   powershell -ExecutionPolicy Bypass -File Setup.ps1 -Config
    ```
-3. Double-click **`Start-PES3-Disc.bat`** (runs in the background; see `disc-run.log` if needed).
+3. Double-click **`Start-PES3-Disc.bat`** (runs in the background; log: `RPCS3\PES3\logs\disc-run.log`).
 4. Insert a PS3-layout disc → confirm the dialog → RPCS3 boots the game.
 
 ### Run at Windows login
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File Install-Startup.ps1
+powershell -ExecutionPolicy Bypass -File Setup.ps1 -Startup
 ```
+
+Or run everything: `Setup.ps1 -All`
 
 This adds a **PES3-Disc** shortcut to your Startup folder. Remove it from **Settings → Apps → Startup** to disable.
 
@@ -94,19 +96,18 @@ Example:
 }
 ```
 
-## Files
+## Files (project root)
 
 | File | Purpose |
 |------|---------|
 | `Start-PES3-Disc.bat` | Start the background watcher |
-| `DiscRun.ps1` | Main watcher (WMI disc events) |
-| `DiscRun-Scan.ps1` | Scan drives and show prompt |
-| `Ps3DiscRun.Common.ps1` | Shared logic |
-| `Setup-Config.ps1` | Pick RPCS3 path |
-| `Install-Startup.ps1` | Add to Windows Startup |
-| `disc-run.log` | Activity log (created at runtime, not in git) |
-| `Test-Ps3DiscDetection.ps1` | Automated layout tests (DIY vs retail-style) |
-| `docs/DISC-COMPATIBILITY.md` | Official vs DIY disc matrix |
+| `DiscRun.ps1` | Watcher + `-Scan` / `-RemoveOnly` for disc events |
+| `Ps3DiscRun.ps1` | Core library (config, paths, retail decrypt) |
+| `Setup.ps1` | `-Config`, `-Startup`, `-RetailDecrypt`, or `-All` |
+| `Test-Ps3DiscDetection.ps1` | Layout tests |
+| `config.example.json` | Config template |
+| `tools/` | `pes3-disc-dump.exe` (after `-RetailDecrypt` setup) |
+| `docs/` | Compatibility and retail decrypt guides |
 
 ## RPCS3 settings
 
@@ -115,7 +116,7 @@ Example:
 
 ## Troubleshooting
 
-- **No prompt:** Ensure `Start-PES3-Disc.bat` is running; open `disc-run.log`. Increase `ScanDelaySeconds` if the drive is slow to mount.
+- **No prompt:** Ensure `Start-PES3-Disc.bat` is running; open `RPCS3\PES3\logs\disc-run.log`. Increase `ScanDelaySeconds` if the drive is slow to mount.
 - **Prompt again after eject/re-insert:** Normal; prompt state resets when the volume is ejected.
 - **RPCS3 opens but game does not start:** Verify `EBOOT.BIN` exists on the disc; test manually:  
   `"C:\path\to\rpcs3.exe" "X:\PS3_GAME\USRDIR\EBOOT.BIN"`

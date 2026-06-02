@@ -7,7 +7,7 @@ PES3-Disc can decrypt **official PS3 Blu-ray games** using the same engine as [P
 1. Install **[.NET 10 SDK](https://dotnet.microsoft.com/download)**.
 2. Run:
    ```powershell
-   powershell -ExecutionPolicy Bypass -File Setup-RetailDecrypt.ps1
+   powershell -ExecutionPolicy Bypass -File Setup.ps1 -RetailDecrypt
    ```
 3. This clones `external/ps3-disc-dumper` and builds `tools\pes3-disc-dump.exe`.
 

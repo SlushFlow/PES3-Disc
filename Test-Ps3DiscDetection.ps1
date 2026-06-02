@@ -1,6 +1,6 @@
 # Validates PES3-Disc layout detection against simulated disc roots (DIY / dump layouts).
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot 'Ps3DiscRun.Common.ps1')
+. (Join-Path $PSScriptRoot 'Ps3DiscRun.ps1')
 
 $failures = 0
 $passed = 0

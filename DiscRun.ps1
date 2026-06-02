@@ -1,11 +1,26 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  PES3-Disc watcher: prompts to run PS3 discs in RPCS3 when a disc is inserted.
+  PES3-Disc: watch for PS3 discs and prompt to run in RPCS3.
+  Modes: default = background watcher; -Scan = one-shot drive scan; -RemoveOnly = eject handling.
 #>
+param(
+    [switch]$Scan,
+    [switch]$RemoveOnly
+)
 
 $ErrorActionPreference = 'SilentlyContinue'
-. (Join-Path $PSScriptRoot 'Ps3DiscRun.Common.ps1')
+. (Join-Path $PSScriptRoot 'Ps3DiscRun.ps1')
+
+if ($Scan -or $RemoveOnly) {
+    $config = Get-Config
+    $delay = 3
+    if ($config -and $config.ScanDelaySeconds) {
+        $delay = [int]$config.ScanDelaySeconds
+    }
+    Update-DiscScan -DelaySeconds $(if ($RemoveOnly) { 0 } else { $delay }) -RemoveOnly:$RemoveOnly
+    exit 0
+}
 
 $mutex = New-Object System.Threading.Mutex($false, 'Global\PES3Disc_Watcher')
 if (-not $mutex.WaitOne(0, $false)) {
@@ -34,27 +49,28 @@ if ($config -and $config.ScanDelaySeconds) {
     $scanDelay = [int]$config.ScanDelaySeconds
 }
 
-# Disc already in drive at startup
-$scanScript = Join-Path $PSScriptRoot 'DiscRun-Scan.ps1'
+$discRun = Join-Path $PSScriptRoot 'DiscRun.ps1'
 Start-Process -FilePath 'powershell.exe' `
-    -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$scanScript`"") `
+    -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$discRun`"", '-Scan') `
     -WindowStyle Hidden | Out-Null
 
 $root = $PSScriptRoot
 $queryInsert = "SELECT * FROM Win32_VolumeChangeEvent WHERE EventType = 2"
 Register-WmiEvent -Query $queryInsert -SourceIdentifier 'Ps3DiscInsert' -Action {
     Start-Sleep -Seconds 1
-    $scan = Join-Path $using:root 'DiscRun-Scan.ps1'
+    $script = Join-Path $using:root 'DiscRun.ps1'
     Start-Process -FilePath 'powershell.exe' -ArgumentList @(
-        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$scan`""
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+        '-File', "`"$script`"", '-Scan'
     ) -WindowStyle Hidden | Out-Null
 } | Out-Null
 
 $queryRemove = "SELECT * FROM Win32_VolumeChangeEvent WHERE EventType = 3"
 Register-WmiEvent -Query $queryRemove -SourceIdentifier 'Ps3DiscRemove' -Action {
-    $scan = Join-Path $using:root 'DiscRun-Scan.ps1'
+    $script = Join-Path $using:root 'DiscRun.ps1'
     Start-Process -FilePath 'powershell.exe' -ArgumentList @(
-        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$scan`"", '-RemoveOnly'
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+        '-File', "`"$script`"", '-Scan', '-RemoveOnly'
     ) -WindowStyle Hidden | Out-Null
 } | Out-Null
 
