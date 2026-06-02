@@ -35,17 +35,15 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "startup"; Description: "Start PES3-Disc when Windows starts"; GroupDescription: "Startup:"; Flags: unchecked
+Name: "runatstartup"; Description: "Start PES3-Disc when Windows starts"; GroupDescription: "Startup:"; Flags: unchecked
 
-[Files]
-; Build-Installer.ps1 fills installer\stage\ from dist\ before ISCC runs
-Source: "stage\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+#include "generated-files.iss"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
-Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: startup
+Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: runatstartup
 
 [Run]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-DotNet-Runtimes.ps1"""; StatusMsg: "Installing .NET 8 and .NET 10 Desktop Runtimes (internet required)..."; Flags: runhidden waituntilterminated

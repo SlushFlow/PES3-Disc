@@ -6,6 +6,7 @@ pes3-disc.log
 dist/
 installer/output/
 installer/stage/
+installer/generated-files.iss
 src/**/bin/
 src/**/obj/
 tools/pes3-disc-dump.exe
