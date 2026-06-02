@@ -22,8 +22,8 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=output
 OutputBaseFilename=PES3-Disc-Setup
-Compression=lzma2/max
-SolidCompression=yes
+Compression=lzma2
+SolidCompression=no
 WizardStyle=modern
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
@@ -37,7 +37,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "runatstartup"; Description: "Start PES3-Disc when Windows starts"; GroupDescription: "Startup:"; Flags: unchecked
 
-#include "generated-files.iss"
+[Files]
+Source: "stage\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

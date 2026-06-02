@@ -85,7 +85,7 @@ if ((Test-Path -LiteralPath $dumpProj) -and $hasNet10) {
     }
     if (Test-Path -LiteralPath $discDumperProj) {
         Write-Host 'Building pes3-disc-dump.exe (retail decrypt)...'
-        & dotnet publish $dumpProj -c Release -r win-x64 --self-contained false -o $out
+        & dotnet publish $dumpProj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $out
         if ($LASTEXITCODE -eq 0) {
             Write-Host 'Included pes3-disc-dump.exe in dist folder.'
         }
