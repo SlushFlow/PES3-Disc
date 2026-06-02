@@ -8,20 +8,29 @@ When you insert a PS3 game disc (or a burned disc with the standard PS3 folder l
 
 ## Desktop app (recommended)
 
-### Installer (easiest)
+### Download (recommended)
 
-Build **`PES3-Disc-Setup.exe`** — installs the app **and** .NET 8 + .NET 10 runtimes:
+**[GitHub Releases](https://github.com/SlushFlow/PES3-Disc/releases)** — download **`PES3-Disc-Setup.exe`**.
+
+The installer sets up the app plus **.NET 8** and **.NET 10** Desktop Runtimes (internet required during install).
+
+A portable ZIP (`PES3-Disc-portable-win-x64.zip`) is also attached if you already have the runtimes.
+
+### Publish a new release (maintainers)
+
+Push a version tag; GitHub Actions builds and uploads the release automatically:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Or run the **Release** workflow manually under Actions (produces a CI build artifact, not a GitHub Release unless you use a tag).
+
+### Build installer locally
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File Build-Installer.ps1
-```
-
-Output: `installer\output\PES3-Disc-Setup.exe` (requires [Inno Setup 6](https://jrsoftware.org/isdl.php) to compile).
-
-No Inno Setup? Run as **Administrator** after `Build-App.ps1`:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File installer\Install-PES3-Disc.ps1
 ```
 
 Details: [installer/README.md](installer/README.md)

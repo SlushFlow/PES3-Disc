@@ -2,7 +2,7 @@
 
 ## For end users
 
-Download **`PES3-Disc-Setup.exe`** from [Releases](https://github.com/SlushFlow/PES3-Disc/releases) (after you publish it), or build locally.
+Download **`PES3-Disc-Setup.exe`** from [GitHub Releases](https://github.com/SlushFlow/PES3-Disc/releases).
 
 The installer:
 

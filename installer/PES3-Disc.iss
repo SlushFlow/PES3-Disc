@@ -2,7 +2,9 @@
 ; Builds with: powershell -File Build-Installer.ps1
 
 #define MyAppName "PES3-Disc"
+#ifndef MyAppVersion
 #define MyAppVersion "1.0.0"
+#endif
 #define MyAppPublisher "PES3-Disc"
 #define MyAppURL "https://github.com/SlushFlow/PES3-Disc"
 #define MyAppExeName "PES3-Disc.exe"

@@ -23,6 +23,9 @@ $iscc = @(
 ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
 
 if (-not $iscc) {
+    if ($env:GITHUB_ACTIONS -eq 'true' -or $env:CI -eq 'true') {
+        throw 'Inno Setup 6 not found on build agent.'
+    }
     Write-Host ''
     Write-Host 'Inno Setup 6 not found.' -ForegroundColor Yellow
     Write-Host 'Install from: https://jrsoftware.org/isdl.php' -ForegroundColor Yellow
@@ -34,12 +37,17 @@ if (-not $iscc) {
     exit 0
 }
 
+$versionDefine = ''
+if ($env:PES3_VERSION) {
+    $versionDefine = "/DMyAppVersion=$($env:PES3_VERSION)"
+}
+
 if (Test-Path -LiteralPath $outDir) {
     Remove-Item -LiteralPath $outDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
-& $iscc $iss
+& $iscc $versionDefine $iss
 if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compile failed.' }
 
 $setup = Get-ChildItem -LiteralPath $outDir -Filter 'PES3-Disc-Setup*.exe' | Select-Object -First 1

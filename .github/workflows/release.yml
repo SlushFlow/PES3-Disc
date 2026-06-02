@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          if ('${{ github.ref_type }}' -eq 'tag') {
+            $v = '${{ github.ref_name }}' -replace '^v', ''
+          } else {
+            $v = '0.0.0-ci'
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          "PES3_VERSION=$v" >> $env:GITHUB_ENV
+          Write-Host "Building version $v"
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Clone ps3-disc-dumper
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path external -Force | Out-Null
+          git clone --depth 1 https://github.com/13xforever/ps3-disc-dumper.git external/ps3-disc-dumper
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build PES3-Disc and installer
+        shell: pwsh
+        env:
+          CI: true
+          GITHUB_ACTIONS: true
+        run: |
+          ./Build-Installer.ps1
+
+      - name: Create portable ZIP
+        shell: pwsh
+        run: |
+          $zip = 'installer/output/PES3-Disc-portable-win-x64.zip'
+          if (Test-Path dist/pes3-disc-dump.exe) {
+            Compress-Archive -Path dist/* -DestinationPath $zip -Force
+          } else {
+            Compress-Archive -Path dist/PES3-Disc.exe -DestinationPath $zip -Force
+          }
+
+      - name: Upload build artifacts (CI / manual)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PES3-Disc-windows-${{ steps.version.outputs.version }}
+          path: |
+            installer/output/PES3-Disc-Setup.exe
+            installer/output/PES3-Disc-portable-win-x64.zip
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: PES3-Disc ${{ steps.version.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            installer/output/PES3-Disc-Setup.exe
+            installer/output/PES3-Disc-portable-win-x64.zip
