@@ -71,7 +71,8 @@ try {
     $attempt = 0
     do {
         $attempt++
-        & $iscc @isccArgs
+        $isccOut = & $iscc @isccArgs 2>&1
+        $isccOut | ForEach-Object { Write-Host $_ }
         if ($LASTEXITCODE -eq 0) { break }
         if ($attempt -lt 3) {
             Write-Host "Inno compile failed (exit $LASTEXITCODE), retry $attempt/3..." -ForegroundColor Yellow
