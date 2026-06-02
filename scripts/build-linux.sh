@@ -11,10 +11,6 @@ if [[ -d external/ps3-disc-dumper ]]; then
   cp -f build/ps3-disc-dumper.Directory.Build.props external/ps3-disc-dumper/Directory.Build.props
   chmod +x scripts/patch-ps3-disc-dumper-for-linux.sh
   ./scripts/patch-ps3-disc-dumper-for-linux.sh
-  # Close #else for WMI stub if patch added opening #else
-  if grep -q '#if PES3_LINUX_BUILD' external/ps3-disc-dumper/Ps3DiscDumper/Dumper.cs && ! grep -q '#endif' external/ps3-disc-dumper/Ps3DiscDumper/Dumper.cs; then
-    sed -i '/return \[.. physicalDriveList.Distinct()\];/a #endif' external/ps3-disc-dumper/Ps3DiscDumper/Dumper.cs || true
-  fi
 fi
 
 echo "==> Publishing PES3-Disc GUI (Avalonia, linux-x64)…"

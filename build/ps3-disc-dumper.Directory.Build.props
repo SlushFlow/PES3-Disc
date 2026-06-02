@@ -3,7 +3,7 @@
   <PropertyGroup>
     <NoWarn>$(NoWarn);CS0612;CS8632</NoWarn>
   </PropertyGroup>
-  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('linux'))">
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != '' and $([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux'))">
     <DefineConstants>$(DefineConstants);PES3_LINUX_BUILD</DefineConstants>
   </PropertyGroup>
 </Project>

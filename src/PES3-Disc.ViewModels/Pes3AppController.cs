@@ -4,7 +4,7 @@ namespace PES3Disc.ViewModels;
 
 public interface IPes3UiHost
 {
-    Task<bool> ShowStageDialogAsync(OpticalDrive drive, DetectedGame game, Func<IProgress<StageProgress>, CancellationToken, Task<PlaySession>> work);
+    Task<PlaySession?> ShowStageDialogAsync(OpticalDrive drive, DetectedGame game, Func<IProgress<StageProgress>, CancellationToken, Task<PlaySession>> work);
     Task<DecryptResult?> ShowDecryptDialogAsync(OpticalDrive drive, string outputDir, Func<IProgress<DecryptProgress>, CancellationToken, Task<DecryptResult>> work);
     void ShowWarning(string message);
     void ShowInfo(string message);
