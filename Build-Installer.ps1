@@ -93,13 +93,11 @@ if (Test-Path -LiteralPath $outDir) {
 }
 New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
-$logPath = Join-Path $outDir 'iscc.log'
 $stdoutLog = Join-Path $outDir 'iscc-stdout.txt'
 $stderrLog = Join-Path $outDir 'iscc-stderr.txt'
 $issName = Split-Path -Leaf $iss
 $isccArgs = @(
     "/DMyAppVersion=$appVersion",
-    "/Log=$logPath",
     $issName
 )
 
@@ -130,13 +128,10 @@ finally {
 }
 
 if ($exitCode -ne 0) {
-    $logText = if (Test-Path -LiteralPath $logPath) { Get-Content -LiteralPath $logPath -Raw } else { '' }
     Write-Host '--- ISCC stdout ---' -ForegroundColor Red
     Write-Host $(if ($stdoutText) { $stdoutText } else { '(empty)' })
     Write-Host '--- ISCC stderr ---' -ForegroundColor Red
     Write-Host $(if ($stderrText) { $stderrText } else { '(empty)' })
-    Write-Host '--- ISCC log file ---' -ForegroundColor Red
-    Write-Host $(if ($logText) { $logText } else { '(empty)' })
 
     if ($env:GITHUB_ACTIONS -eq 'true') {
         $summary = @"
@@ -145,9 +140,6 @@ $($stdoutText.Trim())
 
 ### stderr
 $($stderrText.Trim())
-
-### log
-$($logText.Trim())
 "@
         "## Inno Setup failed (exit $exitCode)`n`n$summary" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
     }

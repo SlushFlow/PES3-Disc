@@ -81,7 +81,6 @@ jobs:
         with:
           name: inno-build-log
           path: |
-            installer/output/iscc.log
             installer/output/iscc-stdout.txt
             installer/output/iscc-stderr.txt
             installer/stage/
