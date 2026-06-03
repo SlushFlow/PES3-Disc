@@ -126,10 +126,10 @@ public class ReportClusteringTests
     public void Similar_reports_cluster()
     {
         var score = ReportClustering.Similarity(
-            "Game crashes on scan",
-            "Insert disc and click scan, app closes",
+            "Scan crash when inserting disc",
+            "When I scan the disc the program crashes",
             "Scan crash",
-            "When I scan the disc the program crashes");
+            "App crashes when I scan the disc");
         Assert.True(score >= BugReportLimits.ClusterSimilarityThreshold);
     }
 

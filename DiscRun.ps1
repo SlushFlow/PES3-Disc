@@ -35,7 +35,7 @@ if ($Scan -or $RemoveOnly) {
         if ($config -and $config.ScanDelaySeconds) {
             $delay = [int]$config.ScanDelaySeconds
         }
-        Update-DiscScan -DelaySeconds $(if ($RemoveOnly) { 0 } else { $delay }) -RemoveOnly:$RemoveOnly `
+        Update-DiscScan -DelaySeconds $(if ($RemoveOnly -or $NonInteractive) { 0 } else { $delay }) -RemoveOnly:$RemoveOnly `
             -TestVolumeRoots $TestVolume -NonInteractive:$NonInteractive -ClearTestVolumes:$ClearTestVolumes
     }
     finally {

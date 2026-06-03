@@ -34,7 +34,8 @@ public static partial class ReportClustering
         var lower = text.ToLowerInvariant();
         lower = NonWord().Replace(lower, " ");
         return string.Join(' ', lower.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(w => w.Length > 1 && !StopWords.Contains(w)));
+            .Where(w => w.Length > 1 && !StopWords.Contains(w))
+            .Select(CanonicalToken));
     }
 
     public static HashSet<string> TokenSet(string title, string body)
@@ -43,6 +44,26 @@ public static partial class ReportClustering
         if (normalized.Length == 0)
             return [];
         return normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    internal static string CanonicalToken(string word)
+    {
+        if (word.Length < 4)
+            return word;
+
+        if (word.EndsWith("ies", StringComparison.Ordinal) && word.Length > 4)
+            return word[..^3] + "y";
+
+        if (word.EndsWith("ing", StringComparison.Ordinal) && word.Length > 5)
+            return word[..^3];
+
+        if (word.EndsWith("es", StringComparison.Ordinal) && word.Length > 4)
+            return word[..^2];
+
+        if (word.EndsWith('s') && !word.EndsWith("ss", StringComparison.Ordinal))
+            return word[..^1];
+
+        return word;
     }
 
     public static double Similarity(string titleA, string bodyA, string titleB, string bodyB)

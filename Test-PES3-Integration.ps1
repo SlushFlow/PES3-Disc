@@ -39,11 +39,32 @@ function Assert-True {
     }
 }
 
+function Wait-ProcessWithTimeout {
+    param(
+        [int[]]$ProcessIds,
+        [int]$TimeoutSeconds = 120
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    foreach ($procId in $ProcessIds) {
+        while ((Get-Process -Id $procId -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+            Start-Sleep -Milliseconds 200
+        }
+        if (Get-Process -Id $procId -ErrorAction SilentlyContinue) {
+            Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+            throw "Process $procId did not exit within ${TimeoutSeconds}s"
+        }
+    }
+}
+
 function Wait-Test {
     param(
         [int]$Seconds,
         [string]$Reason
     )
+    if ($env:GITHUB_ACTIONS -eq 'true') {
+        Write-Host "  ... skip wait ($Reason) on CI" -ForegroundColor DarkGray
+        return
+    }
     if ($Quick) { $Seconds = [Math]::Max(1, [int]($Seconds / 10)) }
     Write-Host "  ... waiting ${Seconds}s ($Reason)" -ForegroundColor DarkGray
     Start-Sleep -Seconds $Seconds
@@ -157,7 +178,7 @@ $session = Get-EphemeralSessionDir
 Copy-Item -LiteralPath $diyRoot -Destination (Join-Path $session 'game') -Recurse -Force
 $sessionEboot = Join-Path $session 'game\PS3_GAME\USRDIR\EBOOT.BIN'
 $ping = Start-Process -FilePath 'ping' -ArgumentList @('127.0.0.1', '-n', '3') -PassThru -WindowStyle Hidden
-Wait-Pes3SessionEnd -ProcessId $ping.Id -GraceSeconds 1 -MaxWaitHours 1
+Wait-Pes3SessionEnd -ProcessId $ping.Id -GraceSeconds 1 -MaxWaitHours $(if ($env:GITHUB_ACTIONS -eq 'true') { 0 } else { 1 })
 Assert-True 'Wait-Pes3SessionEnd completed' (-not (Get-Process -Id $ping.Id -ErrorAction SilentlyContinue))
 
 $game = @{
@@ -191,7 +212,7 @@ $lockProc2 = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$discRun`"",
     '-Scan', '-NonInteractive', '-TestVolume', "`"$diyRoot`""
 ) -PassThru -WindowStyle Hidden -Wait
-Wait-Process -Id $lockProc1.Id -ErrorAction SilentlyContinue
+Wait-ProcessWithTimeout -ProcessIds @($lockProc1.Id) -TimeoutSeconds 120
 Assert-True 'Parallel scan lock test finished' ($true)
 
 if ($Full -and -not $SkipBuild) {

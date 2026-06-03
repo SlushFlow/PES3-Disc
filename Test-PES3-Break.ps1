@@ -19,6 +19,23 @@ function Assert-True {
     }
 }
 
+function Wait-ProcessWithTimeout {
+    param(
+        [int[]]$ProcessIds,
+        [int]$TimeoutSeconds = 120
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    foreach ($procId in $ProcessIds) {
+        while ((Get-Process -Id $procId -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+            Start-Sleep -Milliseconds 200
+        }
+        if (Get-Process -Id $procId -ErrorAction SilentlyContinue) {
+            Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+            throw "Process $procId did not exit within ${TimeoutSeconds}s"
+        }
+    }
+}
+
 . (Join-Path $root 'Ps3DiscRun.ps1')
 
 Write-Host '======== Build fixtures ========' -ForegroundColor Cyan
@@ -65,7 +82,9 @@ $p2 = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$discRun`"",
     '-Scan', '-NonInteractive', '-TestVolume', "`"$retailRoot`""
 ) -PassThru -WindowStyle Hidden
-Wait-Process -Id $p1.Id, $p2.Id -ErrorAction SilentlyContinue
+Wait-ProcessWithTimeout -ProcessIds @($p1.Id, $p2.Id) -TimeoutSeconds 120
+$p1.Refresh()
+$p2.Refresh()
 Assert-True 'Parallel DiscRun scans exit 0' (($p1.ExitCode -eq 0) -and ($p2.ExitCode -eq 0)) "codes $($p1.ExitCode), $($p2.ExitCode)"
 
 Write-Host '======== Empty / garbage roots ========' -ForegroundColor Cyan

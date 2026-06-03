@@ -20,6 +20,7 @@ on:
 jobs:
   break-windows:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -29,11 +30,29 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Standard + break tests (Windows)
+      - name: Build + dotnet tests (Windows)
         shell: pwsh
         run: |
-          ./scripts/ci-test-windows.ps1
+          dotnet build src/PES3-Disc.Core/PES3-Disc.Core.csproj -c Release -v q
+          dotnet build src/PES3-Disc.BugReports/PES3-Disc.BugReports.csproj -c Release -v q
+          dotnet build tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release -v q
+          dotnet build tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release -v q
+          dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n
+          dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName!~BreakApiRateLimitTests"
+          dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~BreakApiRateLimitTests"
+
+      - name: PowerShell tests (Windows)
+        shell: pwsh
+        run: |
+          ./test-fixtures/Build-TestFixtures.ps1
+          ./Test-Ps3DiscDetection.ps1
+          ./Test-PES3-Integration.ps1 -Quick
           ./Test-PES3-Break.ps1
+          $cli = './src/PES3-Disc.Cli/bin/Release/net8.0/pes3-disc-cli.dll'
+          dotnet build src/PES3-Disc.Cli/PES3-Disc.Cli.csproj -c Release -v q
+          $out = dotnet exec $cli scan --test-volume ./test-fixtures/diy-demo-disc --test-volume ./test-fixtures/retail-encrypted-disc 2>&1 | Out-String
+          if ($out -notmatch 'PES3 DIY Test Disc') { throw 'CLI DIY fixture missing' }
+          if ($out -notmatch 'EncryptedRetail|Encrypted retail|decryption') { throw 'CLI retail fixture missing' }
 
       - name: Docker API build (Render parity)
         run: docker build -t pes3-api-test .
