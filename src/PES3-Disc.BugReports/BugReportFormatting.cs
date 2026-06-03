@@ -4,16 +4,11 @@ public static class BugReportFormatting
 {
     public static string FormatForClipboard(BugReportDto report)
     {
-        var lines = new List<string>
+        return string.Join(Environment.NewLine, new[]
         {
-            $"Title: {report.Title}",
-            $"Platform: {report.Platform} • v{report.AppVersion}",
-            $"OS: {report.OsDescription}",
-            $"Submitted: {report.CreatedAtUtc.ToLocalTime():g}",
-            $"Report ID: {report.Id}",
-            "",
-            report.Body,
-        };
-        return string.Join(Environment.NewLine, lines);
+            "PES3 REPORT",
+            $"title: {report.Title}",
+            $"problem: {report.Body}",
+        });
     }
 }

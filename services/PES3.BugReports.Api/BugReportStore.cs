@@ -93,8 +93,8 @@ public sealed class BugReportStore
         {
             insert.Transaction = tx;
             insert.CommandText = """
-                INSERT INTO Reports (Id, ClusterId, Title, Body, Platform, AppVersion, OsDescription, CreatedAtUtc)
-                VALUES ($id, $clusterId, $title, $body, $platform, $appVersion, $os, $created)
+                INSERT INTO Reports (Id, ClusterId, Title, Body, Platform, AppVersion, OsDescription, CreatedAtUtc, Status)
+                VALUES ($id, $clusterId, $title, $body, $platform, $appVersion, $os, $created, 'open')
                 """;
             insert.Parameters.AddWithValue("$id", reportId);
             insert.Parameters.AddWithValue("$clusterId", cluster.Id);
@@ -230,7 +230,7 @@ public sealed class BugReportStore
         cmd.CommandText = """
             UPDATE Reports
             SET Status = $status, ResolutionMessage = $message, ResolvedAtUtc = $resolved
-            WHERE Id = $id AND Status = 'open'
+            WHERE Id = $id AND (Status = 'open' OR Status IS NULL OR Status = '')
             """;
         cmd.Parameters.AddWithValue("$status", status);
         cmd.Parameters.AddWithValue("$message", (object?)message ?? DBNull.Value);
