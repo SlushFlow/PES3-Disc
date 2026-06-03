@@ -1,0 +1,85 @@
+using System.Text.RegularExpressions;
+
+namespace PES3Disc.BugReports;
+
+public static partial class ReportClustering
+{
+    private static readonly HashSet<string> StopWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
+        "is", "it", "this", "that", "when", "i", "my", "cant", "cannot", "not", "get", "does",
+    };
+
+    public static string Normalize(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return "";
+        var lower = text.ToLowerInvariant();
+        lower = NonWord().Replace(lower, " ");
+        return string.Join(' ', lower.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(w => w.Length > 1 && !StopWords.Contains(w)));
+    }
+
+    public static HashSet<string> TokenSet(string title, string body)
+    {
+        var normalized = Normalize($"{title} {body}");
+        if (normalized.Length == 0)
+            return [];
+        return normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public static double Similarity(string titleA, string bodyA, string titleB, string bodyB)
+    {
+        var a = TokenSet(titleA, bodyA);
+        var b = TokenSet(titleB, bodyB);
+        if (a.Count == 0 && b.Count == 0)
+            return 1.0;
+        if (a.Count == 0 || b.Count == 0)
+            return 0.0;
+        var intersection = a.Intersect(b, StringComparer.OrdinalIgnoreCase).Count();
+        var union = a.Union(b, StringComparer.OrdinalIgnoreCase).Count();
+        return union == 0 ? 0.0 : (double)intersection / union;
+    }
+
+    public static ClusterMatchCandidate? FindBestCluster(
+        IEnumerable<ClusterMatchCandidate> clusters,
+        string title,
+        string body,
+        double threshold = BugReportLimits.ClusterSimilarityThreshold)
+    {
+        ClusterMatchCandidate? best = null;
+        var bestScore = 0.0;
+        foreach (var cluster in clusters)
+        {
+            var score = Similarity(title, body, cluster.CentroidTitle, cluster.CentroidBody);
+            if (score >= threshold && score > bestScore)
+            {
+                bestScore = score;
+                best = cluster;
+            }
+        }
+        return best;
+    }
+
+    public static string PickSummaryTitle(string existing, string candidate)
+    {
+        existing = existing.Trim();
+        candidate = candidate.Trim();
+        if (candidate.Length == 0)
+            return TruncateTitle(existing);
+        if (existing.Length == 0)
+            return TruncateTitle(candidate);
+        return candidate.Length < existing.Length ? TruncateTitle(candidate) : TruncateTitle(existing);
+    }
+
+    public static string TruncateTitle(string title)
+    {
+        title = title.Trim();
+        return title.Length <= BugReportLimits.MaxTitleLength
+            ? title
+            : title[..BugReportLimits.MaxTitleLength];
+    }
+
+    [GeneratedRegex(@"[^a-z0-9\s]", RegexOptions.Compiled)]
+    private static partial Regex NonWord();
+}

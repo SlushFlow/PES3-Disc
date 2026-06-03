@@ -21,6 +21,8 @@
       <TextBlock Text="IRD key folder (optional)" Classes="muted"/>
       <TextBox x:Name="IrdDirBox"/>
       <CheckBox x:Name="BackupsCheck" Content="Enable automatic backups" Foreground="#E8EDF4"/>
+      <TextBlock Text="Bug report API URL (optional)" Classes="muted"/>
+      <TextBox x:Name="BugReportApiBox" Watermark="https://pes3-bugreports.onrender.com"/>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
         <Button Classes="secondary" Content="Cancel" Click="Cancel_Click"/>
         <Button Classes="primary" Content="Save" Click="Save_Click"/>

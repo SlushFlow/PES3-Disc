@@ -1,3 +1,5 @@
+using System.Reflection;
+using PES3Disc.BugReports;
 using PES3Disc.Core;
 
 namespace PES3Disc.ViewModels;
@@ -189,5 +191,22 @@ public sealed class Pes3AppController
             return null;
         }
         return session.EbootPath;
+    }
+
+    public async Task SubmitBugReportAsync(string title, string body, string platform, CancellationToken ct = default)
+    {
+        var apiUrl = string.IsNullOrWhiteSpace(_svc.Config.BugReportApiUrl)
+            ? BugReportEndpoints.DefaultApiBaseUrl
+            : _svc.Config.BugReportApiUrl.Trim();
+        var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "1.0.0";
+        using var client = new BugReportClient(apiUrl);
+        await client.SubmitAsync(new BugReportSubmission
+        {
+            Title = title,
+            Body = body,
+            Platform = platform,
+            AppVersion = version,
+            OsDescription = Environment.OSVersion.ToString(),
+        }, ct);
     }
 }

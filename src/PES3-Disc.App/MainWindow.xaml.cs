@@ -46,6 +46,11 @@ public partial class MainWindow : Window
             RefreshHeader();
     }
 
+    private void ReportBug_Click(object sender, RoutedEventArgs e)
+    {
+        new ReportBugWindow { Owner = this }.ShowDialog();
+    }
+
     private async Task RunScanAsync()
     {
         if (_scanInProgress)

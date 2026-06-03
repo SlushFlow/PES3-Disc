@@ -20,6 +20,7 @@
       </StackPanel>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
         <Button Content="Scan" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="Scan_Click"/>
+        <Button Content="Report bug" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="ReportBug_Click"/>
         <Button Content="Settings" Style="{StaticResource SecondaryButton}" Click="Settings_Click"/>
       </StackPanel>
     </Grid>

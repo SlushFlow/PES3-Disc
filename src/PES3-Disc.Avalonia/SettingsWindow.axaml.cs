@@ -17,6 +17,7 @@ public partial class SettingsWindow : Window
         DumpCliBox.Text = c.DumpCliPath;
         IrdDirBox.Text = c.IrdDir;
         BackupsCheck.IsChecked = c.EnableBackups;
+        BugReportApiBox.Text = c.BugReportApiUrl;
     }
 
     private async void Browse_Click(object? sender, RoutedEventArgs e)
@@ -49,6 +50,7 @@ public partial class SettingsWindow : Window
         c.DumpCliPath = DumpCliBox.Text?.Trim() ?? "";
         c.IrdDir = IrdDirBox.Text?.Trim() ?? "";
         c.EnableBackups = BackupsCheck.IsChecked == true;
+        c.BugReportApiUrl = BugReportApiBox.Text?.Trim() ?? "";
         c.SetupComplete = true;
         App.Services.SaveConfig();
         App.Controller = new PES3Disc.ViewModels.Pes3AppController(App.Services);

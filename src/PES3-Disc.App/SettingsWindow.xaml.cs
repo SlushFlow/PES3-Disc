@@ -22,6 +22,7 @@ public partial class SettingsWindow : Window
         BackupOnLaunchCheck.IsChecked = c.BackupOnLaunch;
         StartupCheck.IsChecked = c.RunAtStartup;
         DelayBox.Text = c.ScanDelaySeconds.ToString();
+        BugReportApiBox.Text = c.BugReportApiUrl;
     }
 
     private void Browse_Click(object sender, RoutedEventArgs e)
@@ -62,6 +63,7 @@ public partial class SettingsWindow : Window
         c.BackupOnLaunch = BackupOnLaunchCheck.IsChecked == true;
         c.RunAtStartup = StartupCheck.IsChecked == true;
         c.ScanDelaySeconds = delay;
+        c.BugReportApiUrl = BugReportApiBox.Text.Trim();
         c.SetupComplete = true;
         App.Services.SaveConfig();
 

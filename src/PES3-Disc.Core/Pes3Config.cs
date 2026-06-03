@@ -21,6 +21,7 @@ public sealed class Pes3Config
     public string BackupPath { get; set; } = "";
     public bool RunAtStartup { get; set; }
     public bool SetupComplete { get; set; }
+    public string BugReportApiUrl { get; set; } = "";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

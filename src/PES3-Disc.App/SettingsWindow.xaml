@@ -76,6 +76,16 @@
         </StackPanel>
       </Border>
 
+      <Border Style="{StaticResource CardBorder}">
+        <StackPanel>
+          <TextBlock Text="Bug reports (optional)" FontWeight="SemiBold"/>
+          <TextBlock Text="Custom API URL (leave blank for default Render endpoint)" Margin="0,8,0,4"
+                     Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"/>
+          <TextBox x:Name="BugReportApiBox" Padding="8" Background="#0F1419" Foreground="{StaticResource TextBrush}"
+                   BorderBrush="{StaticResource BorderBrush}"/>
+        </StackPanel>
+      </Border>
+
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
         <Button Content="Cancel" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="Cancel_Click"/>
         <Button Content="Save" Style="{StaticResource PrimaryButton}" Click="Save_Click"/>
