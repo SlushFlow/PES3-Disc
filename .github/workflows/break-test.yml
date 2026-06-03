@@ -1,6 +1,11 @@
 name: Break test
 
 # Manual or push-triggered adversarial test run (DIY + retail fixtures).
+# No pull_request trigger — fork PRs cannot run this workflow (see Protect-GitHubRepo.ps1).
+
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
   push:
