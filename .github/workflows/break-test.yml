@@ -51,6 +51,7 @@ jobs:
 
       - name: Standard + break tests (Linux)
         run: |
+          sed -i 's/\r$//' scripts/ci-test-linux.sh
           bash scripts/ci-test-linux.sh
           dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --filter "FullyQualifiedName~BreakTests" -v n
           dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --filter "FullyQualifiedName~BreakApiTests" -v n

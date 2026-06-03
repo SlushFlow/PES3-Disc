@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Mvc.Testing;
 using PES3Disc.BugReports;
 
 namespace PES3.BugReports.Api.Tests;
@@ -37,33 +38,6 @@ public class BreakApiTests : IClassFixture<ApiWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Z_rate_limiter_blocks_spam_submissions()
-    {
-        var gotCreated = false;
-        var got429 = false;
-        for (var i = 0; i < 15; i++)
-        {
-            var resp = await _client.PostAsJsonAsync("/api/reports", new
-            {
-                title = $"Spam {i}",
-                body = "Rate limit break test",
-                platform = "windows",
-                appVersion = "1.0.0",
-            });
-            if (resp.StatusCode == HttpStatusCode.Created)
-                gotCreated = true;
-            if (resp.StatusCode == HttpStatusCode.TooManyRequests)
-            {
-                got429 = true;
-                break;
-            }
-        }
-
-        Assert.True(gotCreated);
-        Assert.True(got429);
-    }
-
-    [Fact]
     public async Task Resolve_already_closed_report_returns_not_found()
     {
         var submit = await _client.PostAsJsonAsync("/api/reports", new
@@ -95,5 +69,40 @@ public class BreakApiTests : IClassFixture<ApiWebApplicationFactory>
     {
         var resp = await _client.GetAsync("/api/reports/../../etc/passwd/resolution");
         Assert.True(resp.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest);
+    }
+}
+
+[Collection("ApiRateLimit")]
+public class BreakApiRateLimitTests : IClassFixture<ApiWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public BreakApiRateLimitTests(ApiWebApplicationFactory factory) => _client = factory.CreateClient();
+
+    [Fact]
+    public async Task Rate_limiter_blocks_spam_submissions()
+    {
+        var gotCreated = false;
+        var got429 = false;
+        for (var i = 0; i < 15; i++)
+        {
+            var resp = await _client.PostAsJsonAsync("/api/reports", new
+            {
+                title = $"Spam {i}",
+                body = "Rate limit break test",
+                platform = "windows",
+                appVersion = "1.0.0",
+            });
+            if (resp.StatusCode == HttpStatusCode.Created)
+                gotCreated = true;
+            if (resp.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                got429 = true;
+                break;
+            }
+        }
+
+        Assert.True(gotCreated);
+        Assert.True(got429);
     }
 }

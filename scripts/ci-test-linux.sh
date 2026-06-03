@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 echo "==> Build test fixtures (dotnet)"
+dotnet build src/PES3-Disc.Core/PES3-Disc.Core.csproj -c Release -v q
 dotnet build tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release -v q
 
 echo "==> Run dotnet tests"
