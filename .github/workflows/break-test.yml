@@ -49,12 +49,15 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Standard + break tests (Linux)
+      - name: Linux dotnet tests
         run: |
           sed -i 's/\r$//' scripts/ci-test-linux.sh
           bash scripts/ci-test-linux.sh
+
+      - name: Linux break-only dotnet tests
+        run: |
           dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --filter "FullyQualifiedName~BreakTests" -v n
-          dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --filter "FullyQualifiedName~BreakApiTests" -v n
+          dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --filter "FullyQualifiedName~BreakApi" -v n
 
       - name: Docker API build (Render parity)
         run: docker build -t pes3-api-test .

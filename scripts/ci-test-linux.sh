@@ -5,12 +5,14 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 echo "==> Build test fixtures (dotnet)"
-dotnet build src/PES3-Disc.Core/PES3-Disc.Core.csproj -c Release -v q
-dotnet build tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release -v q
+dotnet --list-sdks
+dotnet build src/PES3-Disc.Core/PES3-Disc.Core.csproj -c Release -v q -p:LangVersion=12
+dotnet build tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release -v q -p:LangVersion=12
 
 echo "==> Run dotnet tests"
-dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n
-dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release -v n
+dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --logger "console;verbosity=normal"
+dotnet build tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release -v q -p:LangVersion=12
+dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --no-build -v n --logger "console;verbosity=normal"
 
 echo "==> Build Linux CLI"
 dotnet build src/PES3-Disc.Cli/PES3-Disc.Cli.csproj -c Release -v q
