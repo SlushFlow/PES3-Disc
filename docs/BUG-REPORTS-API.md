@@ -4,7 +4,7 @@ PES3-Disc submits bug reports to a small ASP.NET API. The API source and Render 
 
 | File | Purpose |
 |------|---------|
-| [`render.yaml`](../render.yaml) | Render Blueprint — web service + persistent disk |
+| [`render.yaml`](../render.yaml) | Render Blueprint — web service config |
 | [`Dockerfile`](../Dockerfile) | Builds `services/PES3.BugReports.Api` |
 | [`services/PES3.BugReports.Api/`](PES3.BugReports.Api/) | REST API (SQLite, clustering, rate limit) |
 
@@ -19,6 +19,25 @@ The **PES3 Dev Client** (local WPF app for reading grouped reports) is maintaine
 5. After deploy, verify: `curl https://YOUR-SERVICE.onrender.com/health`
 
 Default URL baked into PES3-Disc: `https://pes3-bugreports.onrender.com` — update [`BugReportEndpoints.cs`](../src/PES3-Disc.BugReports/BugReportEndpoints.cs) if your Render URL differs.
+
+### Free vs paid storage
+
+The blueprint uses **`plan: free`**. Render **does not allow persistent disks on the free tier**, so SQLite is stored at `/tmp/reports.db`. Reports work, but data is **lost** when the service redeploys, restarts, or spins down after idle.
+
+For durable bug reports, upgrade the service to **Starter** (or higher) in the Render dashboard, then add a disk:
+
+```yaml
+    plan: starter
+    envVars:
+      - key: DATABASE_PATH
+        value: /data/reports.db
+    disk:
+      name: pes3-bugreports-data
+      mountPath: /data
+      sizeGB: 1
+```
+
+Remove the free-tier `/tmp` `DATABASE_PATH` if you switch to a disk.
 
 ## Endpoints
 

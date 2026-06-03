@@ -6,14 +6,13 @@ services:
     plan: free
     region: oregon
     dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
     envVars:
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:10000
+      # Free tier has no persistent disk — reports survive until redeploy/restart/spin-down.
+      # For durable storage, upgrade to Starter and add a disk (see docs/BUG-REPORTS-API.md).
       - key: DATABASE_PATH
-        value: /data/reports.db
+        value: /tmp/reports.db
       - key: DEV_API_KEY
         sync: false
-    disk:
-      name: pes3-bugreports-data
-      mountPath: /data
-      sizeGB: 1
