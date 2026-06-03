@@ -1,4 +1,5 @@
 using System.Globalization;
+using PES3.BugReports.Api;
 
 var builder = WebApplication.CreateBuilder(args);
 
