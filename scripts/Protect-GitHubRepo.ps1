@@ -84,15 +84,33 @@ function Invoke-GhApi {
     return $true
 }
 
-function Invoke-GhApiRaw {
-    param([string[]]$GhArgs, [switch]$Optional)
+function Set-MainBranchProtection {
+    param([string]$Repo, [string]$Branch)
 
-    Write-Host "==> gh $($GhArgs -join ' ')" -ForegroundColor Cyan
+    # Must be JSON null, not the string "null" (gh -f null breaks the API).
+    $json = @'
+{
+  "required_status_checks": null,
+  "enforce_admins": true,
+  "required_pull_request_reviews": {
+    "dismiss_stale_reviews": true,
+    "require_code_owner_reviews": true,
+    "require_last_push_approval": true,
+    "required_approving_review_count": 1
+  },
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "required_conversation_resolution": true
+}
+'@
+
+    Write-Host "==> PUT repos/$Repo/branches/$Branch/protection (JSON)" -ForegroundColor Cyan
 
     $saved = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $output = & gh @GhArgs 2>&1
+        $output = $json | gh api --method PUT "repos/$Repo/branches/$Branch/protection" --input - 2>&1
         $code = $LASTEXITCODE
     }
     finally {
@@ -106,14 +124,8 @@ function Invoke-GhApiRaw {
     }
 
     if ($code -ne 0) {
-        if ($Optional) {
-            Write-Host 'WARN: optional gh command not applied' -ForegroundColor Yellow
-            return $false
-        }
-        throw "gh failed (exit $code)"
+        throw "Branch protection failed for $Branch (exit $code)"
     }
-
-    return $true
 }
 
 Require-Gh
@@ -151,19 +163,7 @@ $forkApprovalOk = Invoke-GhApi -Method PUT -Path "repos/$Repo/actions/permission
 } -Optional
 
 # --- Branch protection on main ---
-Invoke-GhApiRaw -GhArgs @(
-    'api', '--method', 'PUT', "repos/$Repo/branches/$Branch/protection",
-    '-f', 'required_status_checks=null',
-    '-F', 'enforce_admins=true',
-    '-F', 'required_pull_request_reviews[required_approving_review_count]=1',
-    '-F', 'required_pull_request_reviews[dismiss_stale_reviews]=true',
-    '-F', 'required_pull_request_reviews[require_code_owner_reviews]=true',
-    '-F', 'required_pull_request_reviews[require_last_push_approval]=true',
-    '-f', 'restrictions=null',
-    '-F', 'allow_force_pushes=false',
-    '-F', 'allow_deletions=false',
-    '-F', 'required_conversation_resolution=true'
-) | Out-Null
+Set-MainBranchProtection -Repo $Repo -Branch $Branch
 
 Write-Host ''
 Write-Host 'Done. Summary of protections applied:' -ForegroundColor Green
