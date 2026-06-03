@@ -8,7 +8,7 @@ PES3-Disc submits bug reports to a small ASP.NET API. The API source and Render 
 | [`Dockerfile`](../Dockerfile) | Builds `services/PES3.BugReports.Api` |
 | [`services/PES3.BugReports.Api/`](PES3.BugReports.Api/) | REST API (SQLite, clustering, rate limit) |
 
-The **PES3 Dev Client** (local WPF app for reading grouped reports) is maintained separately in the `PES3-Dev` folder on your machine; only the API is deployed from this GitHub repo.
+The **PES3 Dev Client** is a local-only WPF app (workspace `C:\Users\Maksim\PES3-Dev` on the maintainer machine — not in this GitHub repo). It reads summaries, resolves reports, and sets **dev status** for the Windows/Linux apps. Only the API is deployed from **PES3-Disc** on Render.
 
 ## Deploy to Render
 
@@ -67,7 +67,7 @@ The desktop apps show a **Developer** badge with a colored dot:
 - **Green** from 8:00 AM through 9:59 PM ET  
 - **Grey** from 10:00 PM through 7:59 AM ET  
 
-Use the **PES3 Dev Client** (local) to set **Auto**, **Green**, **Yellow**, or **Grey**. Manual modes override the schedule until you choose **Auto** again.
+Use the **PES3 Dev Client** at `C:\Users\Maksim\PES3-Dev` → run `Build-DevClient.ps1` or `dotnet run` in `PES3.DevClient` → set **Auto**, **Green**, **Yellow**, or **Grey**. Manual modes override the schedule until you choose **Auto** again.
 
 ## Local API dev
 
