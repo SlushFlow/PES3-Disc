@@ -45,7 +45,28 @@ RPCS3\
 5. When you **close RPCS3**, PES3-Disc deletes the decrypt folder automatically.
 6. **Save data** stays in `dev_hdd0` — only the ripped game files are removed.
 
-Set `"DeleteCacheAfterPlay": false` to keep decrypted games in `PES3\cache` for faster re-plays.
+## Avoid waiting 1–2 hours on every insert (important)
+
+Retail decrypt is **slow once** (often **30–90+ minutes**, drive-limited). It should **not** run on every disc insert.
+
+1. In **Settings**, turn **off** “Delete cache when RPCS3 exits” (this is the default for new installs).
+2. Use an **SSD** for the PES3 cache folder (`DumpCachePath` or `RPCS3\PES3\cache`).
+3. After the **first** successful decrypt, re-insert the same disc and choose **Play from cache** — launch is typically **seconds**, not hours.
+
+PES3-Disc probes the disc product code (fast), looks up the cached folder by product ID, and skips the dump when a valid decrypt is already on disk.
+
+Session mode (`DeleteCacheAfterPlay: true`) deletes the decrypt when RPCS3 closes and forces a full re-dump next time — only use that if you are low on disk space.
+
+## Maximum speed (what PES3-Disc can do)
+
+Retail decrypt speed is dominated by your **Blu-ray drive** and **disc read rate**; the dumper already skips copying `BDMV` and `PS3_UPDATE`. PES3-Disc additionally:
+
+- Runs the dump process at **above-normal** CPU priority (Windows).
+- Uses **server GC** and low-latency GC for the host app during decrypt/staging.
+- Writes decrypt output directly under your configured **PES3 cache** path — use an **SSD** (`DumpCachePath` or `RPCS3\PES3\cache`).
+- Stages DIY discs with **multi-threaded robocopy** (Windows, `/MT:16`) or **rsync --whole-file** (Linux), with parallel buffered copy as fallback.
+
+You cannot speed up sector decryption beyond drive/hardware limits without modifying the upstream PS3 Disc Dumper engine.
 
 ## Config (`config.json`)
 

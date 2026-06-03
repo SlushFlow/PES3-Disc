@@ -29,9 +29,15 @@ public sealed class WindowsDiscDumpBackend : DiscDumpBackendBase
         return null;
     }
 
-    protected override string BuildArguments(OpticalDrive drive, string outputBase, string progressFile)
+    protected override string BuildArguments(OpticalDrive drive, string outputBase, string progressFile) =>
+        AppendDriveArgs($"--output \"{outputBase}\" --progress \"{progressFile}\"", drive);
+
+    protected override string BuildProbeArguments(OpticalDrive drive) =>
+        AppendDriveArgs("--probe", drive);
+
+    private string AppendDriveArgs(string prefix, OpticalDrive drive)
     {
-        var args = $"--output \"{outputBase}\" --progress \"{progressFile}\"";
+        var args = prefix;
         if (OperatingSystem.IsWindows())
             args += $" --drive {drive.Letter}";
         else if (!string.IsNullOrWhiteSpace(drive.Root))

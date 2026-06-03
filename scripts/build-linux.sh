@@ -74,6 +74,13 @@ fi
 [[ -f packaging/linux/pes3-disc.desktop ]] && cp packaging/linux/pes3-disc.desktop "$OUT/"
 [[ -f assets/PES3-Disc.png ]] && cp assets/PES3-Disc.png "$OUT/"
 [[ -f docs/LINUX.md ]] && cp docs/LINUX.md "$OUT/"
+for f in LICENSE LEGAL.md THIRD_PARTY_NOTICES.md PRIVACY.md SECURITY.md; do
+  [[ -f "$f" ]] && cp "$f" "$OUT/"
+done
+if [[ -f docs/USER-LEGAL-GUIDE.md ]]; then
+  mkdir -p "$OUT/docs"
+  cp docs/USER-LEGAL-GUIDE.md "$OUT/docs/"
+fi
 
 ARCHIVE="$PKG/PES3-Disc-linux-x64.tar.gz"
 tar -czf "$ARCHIVE" -C "$OUT" .

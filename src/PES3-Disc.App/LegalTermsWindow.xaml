@@ -1,0 +1,47 @@
+<Window x:Class="PES3Disc.App.LegalTermsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Legal notice — PES3-Disc"
+        Height="480" Width="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+  <Grid Margin="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+      <TextBlock Text="Before using decrypt or copy" FontSize="18" FontWeight="Bold"/>
+      <TextBlock Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0"
+                 Text="PES3-Disc is not legal advice. You are responsible for how you use this software in your country."/>
+    </StackPanel>
+
+    <Border Grid.Row="1" Style="{StaticResource CardBorder}">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+          <CheckBox x:Name="OwnDiscCheck" Margin="0,0,0,10" Foreground="{StaticResource TextBrush}"
+                    Content="I own the physical PS3 disc I use with decrypt or copy features."/>
+          <CheckBox x:Name="NoRedistributeCheck" Margin="0,0,0,10" Foreground="{StaticResource TextBrush}"
+                    Content="I will not share, upload, or redistribute decrypted or copied game files."/>
+          <CheckBox x:Name="ComplyLawCheck" Margin="0,0,0,10" Foreground="{StaticResource TextBrush}"
+                    Content="I understand PES3-Disc does not grant copyright or circumvention rights; I follow laws in my region."/>
+          <Button Content="Open full LEGAL.md" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
+                  Click="OpenLegal_Click"/>
+          <Button Content="Open user legal guide" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,8,0,0"
+                  Click="OpenGuide_Click"/>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <TextBlock Grid.Row="2" x:Name="HintText" Foreground="{StaticResource WarnBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
+               Visibility="Collapsed"/>
+
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+      <Button Content="Cancel" Style="{StaticResource SecondaryButton}" Margin="0,0,10,0" Click="Cancel_Click"/>
+      <Button x:Name="AcceptButton" Content="I agree — continue" Style="{StaticResource PrimaryButton}" IsEnabled="False" Click="Accept_Click"/>
+    </StackPanel>
+  </Grid>
+</Window>

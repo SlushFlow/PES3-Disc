@@ -45,40 +45,135 @@ public sealed class GameCacheService
             return null;
 
         var cacheRoot = _paths.CacheRoot;
-        foreach (var dir in GetCacheSearchPaths(cacheRoot, volumeId, titleId, productCode))
-        {
-            var game = DiscDetector.FindGameOnDrive(dir + Path.DirectorySeparatorChar);
-            if (game is not null)
-            {
-                return new CachedGameEntry
-                {
-                    CacheDir = dir,
-                    Game = game,
-                };
-            }
+        var index = Pes3CacheIndex.Load(cacheRoot);
 
-            try
+        if (!string.IsNullOrWhiteSpace(productCode))
+        {
+            var indexedDir = index.TryGetCacheDir(productCode);
+            if (indexedDir is not null)
             {
-                foreach (var sub in Directory.EnumerateDirectories(dir).Take(32))
-                {
-                    game = DiscDetector.FindGameOnDrive(sub + Path.DirectorySeparatorChar);
-                    if (game is not null)
-                    {
-                        return new CachedGameEntry
-                        {
-                            CacheDir = sub,
-                            Game = game,
-                        };
-                    }
-                }
-            }
-            catch
-            {
-                // ignore
+                var indexed = TryGameAt(indexedDir);
+                if (indexed is not null)
+                    return indexed;
             }
         }
 
+        foreach (var dir in GetCacheSearchPaths(cacheRoot, volumeId, titleId, productCode))
+        {
+            var hit = TryGameAt(dir);
+            if (hit is not null)
+                return hit;
+        }
+
         return null;
+    }
+
+    /// <summary>If the index has exactly one playable retail cache, return it (helps before disc probe).</summary>
+    public CachedGameEntry? TryGetSoleIndexedRetail()
+    {
+        if (_config.DeleteCacheAfterPlay)
+            return null;
+
+        CachedGameEntry? sole = null;
+        var index = Pes3CacheIndex.Load(_paths.CacheRoot);
+        foreach (var entry in index.Entries.Values)
+        {
+            var hit = TryGameAt(entry.CacheDir);
+            if (hit is null)
+                continue;
+            if (sole is not null)
+                return null;
+            sole = hit;
+        }
+
+        return sole;
+    }
+
+    public async Task<CachedGameEntry?> TryGetRetailCachedAsync(
+        OpticalDrive drive,
+        Func<CancellationToken, Task<DiscProbeResult?>>? probeAsync,
+        CancellationToken cancellationToken = default)
+    {
+        if (_config.DeleteCacheAfterPlay)
+            return null;
+
+        string? productCode = null;
+        if (probeAsync is not null)
+        {
+            try
+            {
+                var probe = await probeAsync(cancellationToken).ConfigureAwait(false);
+                productCode = probe?.ProductCode;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // ignore probe errors
+            }
+        }
+
+        var hit = TryGetCached(drive.Id, null, productCode);
+        if (hit is not null)
+            return hit;
+
+        return TryGetSoleIndexedRetail();
+    }
+
+    private static CachedGameEntry? TryGameAt(string dir)
+    {
+        if (!Directory.Exists(dir))
+            return null;
+
+        var game = DiscDetector.FindGameOnDrive(dir + Path.DirectorySeparatorChar);
+        if (game is not null && !IsEncryptedRetailEboot(game.EbootPath))
+        {
+            return new CachedGameEntry
+            {
+                CacheDir = dir,
+                Game = game,
+            };
+        }
+
+        try
+        {
+            foreach (var sub in Directory.EnumerateDirectories(dir).Take(32))
+            {
+                game = DiscDetector.FindGameOnDrive(sub + Path.DirectorySeparatorChar);
+                if (game is not null && !IsEncryptedRetailEboot(game.EbootPath))
+                {
+                    return new CachedGameEntry
+                    {
+                        CacheDir = sub,
+                        Game = game,
+                    };
+                }
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return null;
+    }
+
+    private static bool IsEncryptedRetailEboot(string ebootPath)
+    {
+        try
+        {
+            using var fs = File.OpenRead(ebootPath);
+            Span<byte> buf = stackalloc byte[7];
+            if (fs.Read(buf) < 7)
+                return false;
+            return buf[0] == 0x53 && buf[1] == 0x43 && buf[2] == 0x45 && buf[6] == 2;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public async Task<PlaySession> PrepareDiyPlayAsync(
@@ -166,6 +261,9 @@ public sealed class GameCacheService
         if (_config.DeleteCacheAfterPlay)
             return _paths.NewSessionDir();
 
+        if (!string.IsNullOrWhiteSpace(productCode))
+            return Path.Combine(_paths.CacheRoot, GameMetadata.SanitizeCacheKey(productCode));
+
         return Path.Combine(_paths.CacheRoot, $"dump-{DateTime.Now:yyyyMMdd-HHmmss}");
     }
 
@@ -204,12 +302,20 @@ public sealed class GameCacheService
             cleanup.Add(result.GameRoot);
         }
 
+        var cacheDir = GameMetadata.GetGameRootFromEboot(eboot);
+        if (!_config.DeleteCacheAfterPlay && !string.IsNullOrEmpty(result.ProductCode) && cacheDir is not null)
+        {
+            var index = Pes3CacheIndex.Load(_paths.CacheRoot);
+            index.Upsert(result.ProductCode, cacheDir, result.Title);
+            index.Save(_paths.CacheRoot);
+        }
+
         return new PlaySession
         {
             EbootPath = eboot,
             CleanupDirs = cleanup,
             FromCache = false,
-            CacheDir = GameMetadata.GetGameRootFromEboot(eboot),
+            CacheDir = cacheDir,
         };
     }
 

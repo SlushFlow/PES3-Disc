@@ -52,6 +52,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path external -Force | Out-Null
           git clone --depth 1 https://github.com/13xforever/ps3-disc-dumper.git external/ps3-disc-dumper
+          $commit = git -C external/ps3-disc-dumper rev-parse HEAD
+          "PS3_DISC_DUMPER_COMMIT=$commit" >> $env:GITHUB_ENV
+          Write-Host "ps3-disc-dumper commit: $commit"
           ./scripts/Apply-Ps3DiscDumperBuildProps.ps1
 
       - name: Install Inno Setup
@@ -148,6 +151,7 @@ jobs:
         run: |
           mkdir -p external
           git clone --depth 1 https://github.com/13xforever/ps3-disc-dumper.git external/ps3-disc-dumper
+          echo "PS3_DISC_DUMPER_COMMIT=$(git -C external/ps3-disc-dumper rev-parse HEAD)" >> "$GITHUB_ENV"
           cp build/ps3-disc-dumper.Directory.Build.props external/ps3-disc-dumper/Directory.Build.props
 
       - name: Patch ps3-disc-dumper for Linux build

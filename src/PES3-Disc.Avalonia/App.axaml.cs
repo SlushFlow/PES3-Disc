@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using PES3Disc.Core;
 using PES3Disc.ViewModels;
 
 namespace PES3Disc.Avalonia;
@@ -14,6 +15,7 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        PerformanceTuning.ApplyRuntimeDefaults();
         Services = Pes3Services.Load();
         Services.Initialize();
         Controller = new Pes3AppController(Services);

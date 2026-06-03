@@ -43,6 +43,7 @@ public static class CliApp
             "  pes3-disc scan            List PS3 discs once",
             "  pes3-disc play <n>        Play disc index from last scan",
             "  pes3-disc decrypt <n>     Decrypt retail disc and play",
+            "  --accept-legal-terms      Required once for play/decrypt (see LEGAL.md)",
             "  pes3-disc setup <path>    Set RPCS3 executable path",
             "  pes3-disc config          Show configuration",
             "  pes3-disc watch           Poll drives every N seconds",
@@ -136,7 +137,10 @@ public static class CliApp
                     {
                         Console.Write($"Play DIY disc [{i}] {status.Game.Title}? [y/N] ");
                         if (Console.ReadLine()?.Trim().ToLowerInvariant() is "y" or "yes")
-                            await PlayVolumeAsync(drive, status.Game, cts.Token);
+                        {
+                            if (EnsureLegalAcceptance(Array.Empty<string>()))
+                                await PlayVolumeAsync(drive, status.Game, cts.Token);
+                        }
                     }
                     else if (status.Kind is DiscVolumeKind.EncryptedRetail or DiscVolumeKind.IncompleteBurn
                              && _svc.Config.EnableRetailDecrypt)
@@ -152,7 +156,10 @@ public static class CliApp
                         {
                             Console.Write($"Decrypt retail disc [{i}]? [y/N] ");
                             if (Console.ReadLine()?.Trim().ToLowerInvariant() is "y" or "yes")
-                                await DecryptVolumeAsync(drive, cts.Token);
+                            {
+                                if (EnsureLegalAcceptance(Array.Empty<string>()))
+                                    await DecryptVolumeAsync(drive, cts.Token);
+                            }
                         }
                     }
                 }
@@ -165,8 +172,41 @@ public static class CliApp
         return 0;
     }
 
+    private static bool EnsureLegalAcceptance(string[] args)
+    {
+        if (LegalTerms.IsAccepted(_svc.Config))
+            return true;
+
+        if (args.Any(a => string.Equals(a, "--accept-legal-terms", StringComparison.OrdinalIgnoreCase)))
+        {
+            LegalTerms.RecordAcceptance(_svc.Config);
+            _svc.SaveConfig();
+            Pes3Log.Write($"Legal terms accepted via flag ({LegalTerms.CurrentVersion}).");
+            return true;
+        }
+
+        Console.Write(LegalTerms.CliNotice);
+        Console.Write("Type I ACCEPT to continue: ");
+        var line = Console.ReadLine()?.Trim();
+        if (!string.Equals(line, "I ACCEPT", StringComparison.Ordinal))
+        {
+            Console.Error.WriteLine("Aborted. Read LEGAL.md, then run again with --accept-legal-terms if appropriate.");
+            return false;
+        }
+
+        LegalTerms.RecordAcceptance(_svc.Config);
+        _svc.SaveConfig();
+        return true;
+    }
+
+    private static string[] StripLegalFlag(string[] args) =>
+        args.Where(a => !string.Equals(a, "--accept-legal-terms", StringComparison.OrdinalIgnoreCase)).ToArray();
+
     private static async Task<int> PlayCommand(string[] args)
     {
+        args = StripLegalFlag(args);
+        if (!EnsureLegalAcceptance(args))
+            return 1;
         if (_lastScan.Count == 0)
             RunScan();
         if (!TryParseIndex(args, out var index))
@@ -183,6 +223,9 @@ public static class CliApp
 
     private static async Task<int> DecryptCommand(string[] args)
     {
+        args = StripLegalFlag(args);
+        if (!EnsureLegalAcceptance(args))
+            return 1;
         if (_lastScan.Count == 0)
             RunScan();
         if (!TryParseIndex(args, out var index))
@@ -237,12 +280,25 @@ public static class CliApp
             return;
         }
 
-        var cached = _svc.Cache.TryGetCached(drive.Id, null, null);
+        var cached = await _svc.Cache.TryGetRetailCachedAsync(
+            drive,
+            token => _svc.Decryptor.ProbeDiscAsync(drive, token),
+            ct).ConfigureAwait(false);
         if (cached is not null)
         {
-            Console.WriteLine("Using cached decrypt.");
+            Console.WriteLine($"Using cached decrypt: {cached.CacheDir}");
             await LaunchSessionAsync(_svc.Cache.SessionFromCached(cached), ct);
             return;
+        }
+
+        DiscProbeResult? probe = null;
+        try
+        {
+            probe = await _svc.Decryptor.ProbeDiscAsync(drive, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            // ignore
         }
 
         string outputDir;
@@ -254,7 +310,7 @@ public static class CliApp
         }
         else
         {
-            outputDir = _svc.Cache.ResolveRetailOutputDir(null);
+            outputDir = _svc.Cache.ResolveRetailOutputDir(probe?.ProductCode);
             Directory.CreateDirectory(outputDir);
         }
 

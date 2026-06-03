@@ -4,7 +4,7 @@
   "UseNoGui": false,
   "EnableRetailDecrypt": true,
   "DecryptUnknownOpticalMedia": false,
-  "DeleteCacheAfterPlay": true,
+  "DeleteCacheAfterPlay": false,
   "DumpCachePath": "",
   "DumpCliPath": "",
   "IrdDir": "",

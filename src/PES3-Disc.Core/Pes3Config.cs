@@ -10,7 +10,7 @@ public sealed class Pes3Config
     public bool UseNoGui { get; set; }
     public bool EnableRetailDecrypt { get; set; } = true;
     public bool DecryptUnknownOpticalMedia { get; set; }
-    public bool DeleteCacheAfterPlay { get; set; } = true;
+    public bool DeleteCacheAfterPlay { get; set; }
     public string DumpCachePath { get; set; } = "";
     public string DumpCliPath { get; set; } = "";
     public string IrdDir { get; set; } = "";
@@ -21,6 +21,9 @@ public sealed class Pes3Config
     public string BackupPath { get; set; } = "";
     public bool RunAtStartup { get; set; }
     public bool SetupComplete { get; set; }
+    /// <summary>Matches <see cref="LegalTerms.CurrentVersion"/> when the user accepted the notice.</summary>
+    public string? AcceptedLegalTermsVersion { get; set; }
+    public DateTime? LegalTermsAcceptedUtc { get; set; }
     public string BugReportApiUrl { get; set; } = "";
 
     private static readonly JsonSerializerOptions JsonOptions = new()

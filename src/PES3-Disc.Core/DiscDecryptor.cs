@@ -34,4 +34,9 @@ public sealed class DiscDecryptor
         IProgress<DecryptProgress>? progress = null,
         CancellationToken cancellationToken = default) =>
         _backend.DecryptAsync(drive, outputBase, progress, cancellationToken);
+
+    public Task<DiscProbeResult?> ProbeDiscAsync(
+        OpticalDrive drive,
+        CancellationToken cancellationToken = default) =>
+        _backend.ProbeDiscAsync(drive, cancellationToken);
 }

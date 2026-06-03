@@ -1,0 +1,15 @@
+PES3-Disc — helper for launching PS3-format discs in RPCS3 (your own install).
+
+YOU MUST:
+- Own any physical disc you decrypt or copy.
+- Comply with copyright and anti-circumvention laws in your country.
+- NOT redistribute, upload, or sell decrypted or copied game files.
+
+PES3-Disc does not include games, keys, or RPCS3. It is not affiliated with Sony,
+PlayStation, or the RPCS3 developers.
+
+Persistent cache keeps decrypt output on your disk for faster replay; you remain
+responsible for those files.
+
+Full terms: LEGAL.md, docs\USER-LEGAL-GUIDE.md, LICENSE in the install folder.
+Optional bug reports: PRIVACY.md (metadata only; no disc contents).

@@ -23,6 +23,26 @@ public partial class SettingsWindow : Window
         StartupCheck.IsChecked = c.RunAtStartup;
         DelayBox.Text = c.ScanDelaySeconds.ToString();
         BugReportApiBox.Text = c.BugReportApiUrl;
+        RefreshLegalStatus();
+    }
+
+    private void RefreshLegalStatus()
+    {
+        var c = App.Services.Config;
+        LegalStatusText.Text = LegalTerms.IsAccepted(c)
+            ? $"Terms accepted ({LegalTerms.CurrentVersion}) on {c.LegalTermsAcceptedUtc:u}."
+            : "Decrypt and copy require accepting the current terms.";
+    }
+
+    private void OpenLegal_Click(object sender, RoutedEventArgs e) =>
+        LegalTerms.TryOpenDocument("LEGAL.md");
+
+    private void ReviewLegal_Click(object sender, RoutedEventArgs e)
+    {
+        LegalTerms.ClearAcceptance(App.Services.Config);
+        App.Services.SaveConfig();
+        if (LegalTermsWindow.Prompt(this))
+            RefreshLegalStatus();
     }
 
     private void Browse_Click(object sender, RoutedEventArgs e)

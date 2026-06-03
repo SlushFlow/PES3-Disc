@@ -38,6 +38,9 @@ public partial class SetupWindow : Window
         Close();
     }
 
+    private void OpenLegal_Click(object sender, RoutedEventArgs e) =>
+        LegalTerms.TryOpenDocument("LEGAL.md");
+
     private void Finish_Click(object sender, RoutedEventArgs e)
     {
         var path = Rpcs3PathBox.Text.Trim();
@@ -48,6 +51,13 @@ public partial class SetupWindow : Window
             return;
         }
 
+        if (LegalOwnCheck.IsChecked != true || LegalNoShareCheck.IsChecked != true || LegalComplyCheck.IsChecked != true)
+        {
+            StatusText.Foreground = (System.Windows.Media.Brush)FindResource("WarnBrush");
+            StatusText.Text = "Please confirm all legal statements to continue.";
+            return;
+        }
+
         var cfg = App.Services.Config;
         cfg.Rpcs3Path = path;
         cfg.DeleteCacheAfterPlay = DeleteCacheCheck.IsChecked == true;
@@ -55,6 +65,7 @@ public partial class SetupWindow : Window
         cfg.RunAtStartup = StartupCheck.IsChecked == true;
         cfg.SetupComplete = true;
         cfg.EnableRetailDecrypt = true;
+        LegalTerms.RecordAcceptance(cfg);
         App.Services.SaveConfig();
 
         var exe = Environment.ProcessPath

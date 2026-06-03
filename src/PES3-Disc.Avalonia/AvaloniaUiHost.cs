@@ -10,6 +10,22 @@ namespace PES3Disc.Avalonia;
 
 public sealed class AvaloniaUiHost : IPes3UiHost
 {
+    public async Task<bool> ConfirmLegalTermsAsync()
+    {
+        if (LegalTerms.IsAccepted(App.Services.Config))
+            return true;
+
+        var dlg = new LegalTermsWindow();
+        var owner = GetOwner();
+        var ok = await dlg.ShowDialog<bool>(owner);
+        if (ok != true || !dlg.Accepted)
+            return false;
+
+        LegalTerms.RecordAcceptance(App.Services.Config);
+        App.Services.SaveConfig();
+        return true;
+    }
+
     public async Task<PlaySession?> ShowStageDialogAsync(
         OpticalDrive drive,
         DetectedGame game,

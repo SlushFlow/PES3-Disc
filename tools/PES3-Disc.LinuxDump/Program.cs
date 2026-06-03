@@ -14,6 +14,8 @@ internal static class Program
 
     public static async Task<int> Main(string[] args)
     {
+        PES3Disc.Core.PerformanceTuning.ApplyRuntimeDefaults();
+        PES3Disc.Core.PerformanceTuning.TryBoostCurrentProcess();
         try
         {
             var options = LinuxCliOptions.Parse(args);
@@ -23,12 +25,16 @@ internal static class Program
                 return 0;
             }
 
+            if (options.ProbeOnly)
+                return await RunProbeAsync(options).ConfigureAwait(false);
+
             SettingsProvider.Settings = SettingsProvider.Settings with
             {
                 OutputDir = options.OutputBase,
                 IrdDir = options.IrdDir,
                 CopyBdmv = false,
                 CopyPs3Update = false,
+                ShowDetails = false,
             };
 
             using var dumper = new Dumper();
@@ -116,26 +122,32 @@ internal static class Program
 
     private static async Task WriteProgressLoopAsync(Dumper dumper, string path, CancellationToken token)
     {
+        long lastSectors = -1;
         while (!token.IsCancellationRequested)
         {
             try
             {
-                var progress = new DumpProgress
+                var processed = dumper.ProcessedSectors + dumper.CurrentFileSector;
+                if (processed != lastSectors || dumper.TotalFileSectors == 0)
                 {
-                    Phase = dumper.TotalFileSectors > 0 ? "dumping" : "analyzing",
-                    CurrentFile = dumper.CurrentFileNumber,
-                    TotalFiles = dumper.TotalFileCount,
-                    ProcessedSectors = dumper.ProcessedSectors + dumper.CurrentFileSector,
-                    TotalFileSectors = dumper.TotalFileSectors,
-                    ProductCode = dumper.ProductCode,
-                    Title = dumper.Title,
-                };
-                await File.WriteAllTextAsync(path, JsonSerializer.Serialize(progress, JsonOptions), token).ConfigureAwait(false);
+                    lastSectors = processed;
+                    var progress = new DumpProgress
+                    {
+                        Phase = dumper.TotalFileSectors > 0 ? "dumping" : "analyzing",
+                        CurrentFile = dumper.CurrentFileNumber,
+                        TotalFiles = dumper.TotalFileCount,
+                        ProcessedSectors = processed,
+                        TotalFileSectors = dumper.TotalFileSectors,
+                        ProductCode = dumper.ProductCode,
+                        Title = dumper.Title,
+                    };
+                    await File.WriteAllTextAsync(path, JsonSerializer.Serialize(progress, JsonOptions), token).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) { break; }
             catch { /* ignore */ }
 
-            try { await Task.Delay(400, token).ConfigureAwait(false); }
+            try { await Task.Delay(250, token).ConfigureAwait(false); }
             catch (OperationCanceledException) { break; }
         }
     }
@@ -145,6 +157,28 @@ internal static class Program
 
     private static void EmitError(string code, string message) =>
         Console.WriteLine(JsonSerializer.Serialize(new { type = "error", code, message }, JsonOptions));
+
+    private static async Task<int> RunProbeAsync(LinuxCliOptions options)
+    {
+        using var dumper = new Dumper();
+        var inDir = options.ResolveInputDirectory();
+        await Task.Run(() => dumper.DetectDisc(inDir)).ConfigureAwait(false);
+
+        if (string.IsNullOrEmpty(dumper.ProductCode))
+        {
+            EmitError("no_disc", "No PS3 disc found.");
+            return 2;
+        }
+
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            type = "probe",
+            Success = true,
+            ProductCode = dumper.ProductCode,
+            Title = dumper.Title,
+        }, JsonOptions));
+        return 0;
+    }
 }
 
 internal sealed class LinuxCliOptions
@@ -154,6 +188,7 @@ internal sealed class LinuxCliOptions
     public required string OutputBase { get; init; }
     public required string IrdDir { get; init; }
     public string? ProgressFile { get; init; }
+    public bool ProbeOnly { get; init; }
     public bool ShowHelp { get; init; }
 
     public const string HelpText = """
@@ -164,9 +199,11 @@ mounted paths under /media or /run/media.
 
 Usage:
   pes3-disc-dump-linux --output <folder> [--mount <path>] [--device /dev/sr0] [--ird-dir <dir>] [--progress <file>]
+  pes3-disc-dump-linux --probe [--mount <path>] [--device /dev/sr0]
 
 Options:
-  --output, -o     Output base folder (required)
+  --probe          Read disc product code only (fast; no decrypt)
+  --output, -o     Output base folder (required unless --probe)
   --mount, -m      Mounted disc root (e.g. /run/media/user/PS3_DISC)
   --device         Preferred block device for sector decrypt (e.g. /dev/sr0)
   --ird-dir        IRD / key cache
@@ -191,12 +228,16 @@ Requires read access to the optical drive (user in 'disk' group or root for raw 
         string? irdDir = null;
         string? progress = null;
         var showHelp = false;
+        var probeOnly = false;
 
         for (var i = 0; i < args.Length; i++)
         {
             var a = args[i];
             switch (a)
             {
+                case "--probe":
+                    probeOnly = true;
+                    break;
                 case "-h":
                 case "--help":
                     showHelp = true;
@@ -227,7 +268,7 @@ Requires read access to the optical drive (user in 'disk' group or root for raw 
         if (showHelp)
             return new LinuxCliOptions { ShowHelp = true, OutputBase = "", IrdDir = "" };
 
-        if (string.IsNullOrWhiteSpace(output))
+        if (!probeOnly && string.IsNullOrWhiteSpace(output))
             throw new ArgumentException("Missing required --output.");
 
         irdDir ??= PES3Disc.Core.PlatformPaths.DefaultIrdDirectory;
@@ -236,9 +277,10 @@ Requires read access to the optical drive (user in 'disk' group or root for raw 
         {
             DevicePath = device,
             MountPath = mount is null ? null : Path.GetFullPath(mount),
-            OutputBase = Path.GetFullPath(output),
+            OutputBase = string.IsNullOrWhiteSpace(output) ? "" : Path.GetFullPath(output),
             IrdDir = Path.GetFullPath(irdDir),
             ProgressFile = progress,
+            ProbeOnly = probeOnly,
         };
     }
 

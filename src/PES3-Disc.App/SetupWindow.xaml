@@ -40,12 +40,23 @@
     <Border Grid.Row="2" Style="{StaticResource CardBorder}" VerticalAlignment="Top">
       <StackPanel>
         <TextBlock Text="Options" FontWeight="SemiBold" Margin="0,0,0,12"/>
-        <CheckBox x:Name="DeleteCacheCheck" Content="Delete decrypt folder when RPCS3 closes (recommended)"
-                  IsChecked="True" Foreground="{StaticResource TextBrush}" Margin="0,0,0,8"/>
+        <CheckBox x:Name="DeleteCacheCheck" Content="Delete decrypted game when RPCS3 closes (re-decrypt every time — slow)"
+                  IsChecked="False" Foreground="{StaticResource TextBrush}" Margin="0,0,0,8"/>
+        <TextBlock Text="Leave unchecked to keep decrypt on SSD. First decrypt takes 30–90+ min; later inserts play in seconds."
+                   Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
         <CheckBox x:Name="StartupCheck" Content="Start PES3-Disc when Windows starts"
                   Foreground="{StaticResource TextBrush}" Margin="0,0,0,8"/>
         <CheckBox x:Name="BackupsCheck" Content="Backup game files before deleting cache"
                   IsChecked="True" Foreground="{StaticResource TextBrush}"/>
+        <TextBlock Text="Legal (required)" FontWeight="SemiBold" Margin="0,16,0,8"/>
+        <CheckBox x:Name="LegalOwnCheck" Foreground="{StaticResource TextBrush}" Margin="0,0,0,6"
+                  Content="I own discs I decrypt or copy with this app."/>
+        <CheckBox x:Name="LegalNoShareCheck" Foreground="{StaticResource TextBrush}" Margin="0,0,0,6"
+                  Content="I will not redistribute decrypted or copied game files."/>
+        <CheckBox x:Name="LegalComplyCheck" Foreground="{StaticResource TextBrush}" Margin="0,0,0,6"
+                  Content="I follow copyright and circumvention laws in my region."/>
+        <Button Content="Read LEGAL.md" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
+                Click="OpenLegal_Click"/>
         <TextBlock x:Name="StatusText" Foreground="{StaticResource MutedBrush}" Margin="0,16,0,0" TextWrapping="Wrap"/>
       </StackPanel>
     </Border>

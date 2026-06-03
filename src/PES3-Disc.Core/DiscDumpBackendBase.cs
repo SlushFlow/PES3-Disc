@@ -17,6 +17,68 @@ public abstract class DiscDumpBackendBase : IDiscDumpBackend
 
     protected abstract string? FindDumpCliPath();
     protected abstract string BuildArguments(OpticalDrive drive, string outputBase, string progressFile);
+    protected abstract string BuildProbeArguments(OpticalDrive drive);
+
+    public async Task<DiscProbeResult?> ProbeDiscAsync(
+        OpticalDrive drive,
+        CancellationToken cancellationToken = default)
+    {
+        var cli = FindDumpCliPath();
+        if (cli is null)
+            return null;
+
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = cli,
+                Arguments = BuildProbeArguments(drive),
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using var proc = Process.Start(psi);
+            if (proc is null)
+                return null;
+
+            PerformanceTuning.TryBoostChildProcess(proc);
+            var stdout = await proc.StandardOutput.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            await proc.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            if (proc.ExitCode != 0)
+                return null;
+
+            foreach (var line in stdout.Split('\n'))
+            {
+                if (!line.Contains("\"type\"", StringComparison.OrdinalIgnoreCase) ||
+                    !line.Contains("probe", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                try
+                {
+                    var probe = JsonSerializer.Deserialize<DumpCliProbe>(line.Trim(), JsonOptions);
+                    if (!string.IsNullOrEmpty(probe?.ProductCode))
+                    {
+                        return new DiscProbeResult
+                        {
+                            ProductCode = probe.ProductCode,
+                            Title = probe.Title,
+                        };
+                    }
+                }
+                catch { /* ignore */ }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Pes3Log.Write($"Disc probe failed: {ex.Message}");
+        }
+
+        return null;
+    }
 
     public async Task<DecryptResult> DecryptAsync(
         OpticalDrive drive,
@@ -24,6 +86,9 @@ public abstract class DiscDumpBackendBase : IDiscDumpBackend
         IProgress<DecryptProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        PerformanceTuning.ApplyRuntimeDefaults();
+        PerformanceTuning.TryBoostCurrentProcess();
+
         var cli = FindDumpCliPath();
         if (cli is null)
         {
@@ -47,15 +112,19 @@ public abstract class DiscDumpBackendBase : IDiscDumpBackend
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            psi.Environment["DOTNET_gcServer"] = "1";
+            psi.Environment["DOTNET_ReadyToRun"] = "1";
 
             using var proc = Process.Start(psi);
             if (proc is null)
                 return Fail("error", "Could not start dump process.");
 
+            PerformanceTuning.TryBoostChildProcess(proc);
+
             var progressCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             var progressTask = PollProgressAsync(progressFile, progress, progressCts.Token);
-            var stdoutTask = proc.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stderrTask = proc.StandardError.ReadToEndAsync(cancellationToken);
+            var stdoutTask = DrainStreamAsync(proc.StandardOutput, cancellationToken);
+            var stderrTask = DrainStreamAsync(proc.StandardError, cancellationToken);
 
             await proc.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
@@ -112,21 +181,43 @@ public abstract class DiscDumpBackendBase : IDiscDumpBackend
         }
     }
 
+    private static async Task<string> DrainStreamAsync(StreamReader reader, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
     private static async Task PollProgressAsync(
         string progressFile,
         IProgress<DecryptProgress>? progress,
         CancellationToken cancellationToken)
     {
+        long lastSectors = -1;
         while (!cancellationToken.IsCancellationRequested)
         {
             if (File.Exists(progressFile))
             {
                 try
                 {
-                    var json = await File.ReadAllTextAsync(progressFile, cancellationToken).ConfigureAwait(false);
+                    await using var fs = new FileStream(
+                        progressFile,
+                        FileMode.Open,
+                        FileAccess.Read,
+                        FileShare.ReadWrite,
+                        bufferSize: 4096,
+                        FileOptions.Asynchronous | FileOptions.SequentialScan);
+                    using var sr = new StreamReader(fs);
+                    var json = await sr.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
                     var p = JsonSerializer.Deserialize<DumpCliProgress>(json, JsonOptions);
-                    if (p is not null)
+                    if (p is not null && p.ProcessedSectors != lastSectors)
                     {
+                        lastSectors = p.ProcessedSectors;
                         progress?.Report(new DecryptProgress
                         {
                             Phase = p.Phase ?? (p.TotalFileSectors > 0 ? "dumping" : "analyzing"),
@@ -141,7 +232,7 @@ public abstract class DiscDumpBackendBase : IDiscDumpBackend
                 }
                 catch { /* ignore */ }
             }
-            try { await Task.Delay(400, cancellationToken).ConfigureAwait(false); }
+            try { await Task.Delay(250, cancellationToken).ConfigureAwait(false); }
             catch (OperationCanceledException) { break; }
         }
     }
@@ -190,5 +281,11 @@ public abstract class DiscDumpBackendBase : IDiscDumpBackend
     private sealed class DumpCliError
     {
         public string? Message { get; set; }
+    }
+
+    private sealed class DumpCliProbe
+    {
+        public string? ProductCode { get; set; }
+        public string? Title { get; set; }
     }
 }

@@ -6,6 +6,7 @@ namespace PES3Disc.ViewModels;
 
 public interface IPes3UiHost
 {
+    Task<bool> ConfirmLegalTermsAsync();
     Task<PlaySession?> ShowStageDialogAsync(OpticalDrive drive, DetectedGame game, Func<IProgress<StageProgress>, CancellationToken, Task<PlaySession>> work);
     Task<DecryptResult?> ShowDecryptDialogAsync(OpticalDrive drive, string outputDir, Func<IProgress<DecryptProgress>, CancellationToken, Task<DecryptResult>> work);
     void ShowWarning(string message);
@@ -33,9 +34,9 @@ public sealed class Pes3AppController
         get
         {
             var cacheNote = _svc.Config.DeleteCacheAfterPlay
-                ? "Session cache (cleared after play)"
-                : $"Persistent cache: {_svc.Paths.CacheRoot}";
-            return $"DIY and retail discs use the same PES3 cache for fast RPCS3 loading. {cacheNote}.";
+                ? "Session mode: full decrypt every time you play (slow)."
+                : $"Persistent cache: {_svc.Paths.CacheRoot} — re-insert disc plays in seconds after first decrypt.";
+            return cacheNote;
         }
     }
 
@@ -73,14 +74,18 @@ public sealed class Pes3AppController
             }
             else if (status.Kind is DiscVolumeKind.EncryptedRetail or DiscVolumeKind.IncompleteBurn)
             {
-                var retailCached = _svc.Cache.TryGetCached(drive.Id, null, null);
+                var retailCached = _svc.Cache.TryGetCached(drive.Id, null, null)
+                    ?? _svc.Cache.TryGetSoleIndexedRetail();
                 if (retailCached is not null)
-                    detail = "Decrypted game already in cache — play without re-decrypting.";
+                    detail = "Decrypted copy on disk — use Play from cache (no re-decrypt).";
+                else if (!_svc.Config.DeleteCacheAfterPlay)
+                    detail = "First decrypt takes 30–90+ min; keep cache enabled so the next insert is instant.";
             }
 
             detail += $"  ({drive.Root})";
 
-            var retailCache = _svc.Cache.TryGetCached(drive.Id, null, null);
+            var retailCache = _svc.Cache.TryGetCached(drive.Id, null, null)
+                ?? _svc.Cache.TryGetSoleIndexedRetail();
             cards.Add(new DiscCardModel
             {
                 Drive = drive,
@@ -107,6 +112,9 @@ public sealed class Pes3AppController
 
         PlaySession session;
         var cached = _svc.Cache.TryGetCached(drive.Id, game.TitleId, null);
+        if (cached is null && !await EnsureLegalTermsAsync(ui, ct).ConfigureAwait(false))
+            return null;
+
         if (cached is not null)
         {
             session = _svc.Cache.SessionFromCached(cached);
@@ -133,6 +141,9 @@ public sealed class Pes3AppController
 
     public async Task<string?> DecryptAndPlayAsync(OpticalDrive drive, IPes3UiHost ui, CancellationToken ct = default)
     {
+        if (!await EnsureLegalTermsAsync(ui, ct).ConfigureAwait(false))
+            return null;
+
         if (!_svc.Decryptor.IsAvailable)
         {
             ui.ShowWarning(OperatingSystem.IsLinux()
@@ -144,9 +155,22 @@ public sealed class Pes3AppController
         _prompted.Add(drive.Id);
         SavePrompted();
 
-        var cached = _svc.Cache.TryGetCached(drive.Id, null, null);
+        var cached = await _svc.Cache.TryGetRetailCachedAsync(
+            drive,
+            token => _svc.Decryptor.ProbeDiscAsync(drive, token),
+            ct).ConfigureAwait(false);
         if (cached is not null)
             return await PlayFromCacheAsync(cached, ui, ct);
+
+        DiscProbeResult? probe = null;
+        try
+        {
+            probe = await _svc.Decryptor.ProbeDiscAsync(drive, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            // ignore
+        }
 
         string outputDir;
         List<string> cleanup;
@@ -157,7 +181,7 @@ public sealed class Pes3AppController
         }
         else
         {
-            outputDir = _svc.Cache.ResolveRetailOutputDir(null);
+            outputDir = _svc.Cache.ResolveRetailOutputDir(probe?.ProductCode);
             Directory.CreateDirectory(outputDir);
             cleanup = new List<string>();
         }
@@ -180,6 +204,20 @@ public sealed class Pes3AppController
 
         var session = _svc.Cache.FinalizeRetailDecrypt(result, outputDir, cleanup);
         return await LaunchSessionAsync(session, ui, ct);
+    }
+
+    private async Task<bool> EnsureLegalTermsAsync(IPes3UiHost ui, CancellationToken ct)
+    {
+        if (LegalTerms.IsAccepted(_svc.Config))
+            return true;
+
+        if (!await ui.ConfirmLegalTermsAsync().ConfigureAwait(false))
+            return false;
+
+        LegalTerms.RecordAcceptance(_svc.Config);
+        _svc.SaveConfig();
+        Pes3Log.Write($"Legal terms accepted ({LegalTerms.CurrentVersion}).");
+        return true;
     }
 
     private async Task<string?> LaunchSessionAsync(PlaySession session, IPes3UiHost ui, CancellationToken ct)

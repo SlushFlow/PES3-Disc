@@ -41,9 +41,15 @@ public sealed class LinuxDiscDumpBackend : DiscDumpBackendBase
         return null;
     }
 
-    protected override string BuildArguments(OpticalDrive drive, string outputBase, string progressFile)
+    protected override string BuildArguments(OpticalDrive drive, string outputBase, string progressFile) =>
+        AppendDriveArgs($"--output \"{outputBase}\" --progress \"{progressFile}\"", drive);
+
+    protected override string BuildProbeArguments(OpticalDrive drive) =>
+        AppendDriveArgs("--probe", drive);
+
+    private string AppendDriveArgs(string prefix, OpticalDrive drive)
     {
-        var args = $"--output \"{outputBase}\" --progress \"{progressFile}\"";
+        var args = prefix;
         var mount = drive.Root.TrimEnd('/', '\\');
         if (!string.IsNullOrEmpty(mount))
             args += $" --mount \"{mount}\"";

@@ -31,8 +31,10 @@
           <TextBlock Text="PES3 cache (DIY + retail)" FontWeight="SemiBold"/>
           <TextBlock Text="Games are copied or decrypted into this folder so RPCS3 reads from SSD instead of the optical drive."
                      Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" FontSize="12" Margin="0,6,0,0"/>
-          <CheckBox x:Name="DeleteCacheCheck" Content="Delete cache when RPCS3 exits (session mode)" Margin="0,10,0,0"
+          <CheckBox x:Name="DeleteCacheCheck" Content="Delete cache when RPCS3 exits (session mode — full decrypt every time)" Margin="0,10,0,0"
                     Foreground="{StaticResource TextBrush}"/>
+          <TextBlock Text="Off (default): keep decrypt on disk; re-insert the same disc and use Play from cache."
+                     Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" FontSize="12" Margin="0,6,0,0"/>
           <TextBlock Text="Custom cache folder (optional)" Margin="0,12,0,4" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
           <TextBox x:Name="CachePathBox" Padding="8" Background="#0F1419" Foreground="{StaticResource TextBrush}"
                    BorderBrush="{StaticResource BorderBrush}"/>
@@ -73,6 +75,17 @@
           <TextBlock Text="Windows" FontWeight="SemiBold"/>
           <CheckBox x:Name="StartupCheck" Content="Run at Windows login" Margin="0,10,0,0"
                     Foreground="{StaticResource TextBrush}"/>
+        </StackPanel>
+      </Border>
+
+      <Border Style="{StaticResource CardBorder}">
+        <StackPanel>
+          <TextBlock Text="Legal" FontWeight="SemiBold"/>
+          <TextBlock x:Name="LegalStatusText" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" FontSize="12" Margin="0,8,0,0"/>
+          <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+            <Button Content="Open LEGAL.md" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="OpenLegal_Click"/>
+            <Button Content="Review terms…" Style="{StaticResource SecondaryButton}" Click="ReviewLegal_Click"/>
+          </StackPanel>
         </StackPanel>
       </Border>
 

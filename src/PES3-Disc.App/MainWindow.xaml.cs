@@ -69,8 +69,8 @@ public partial class MainWindow : Window
         var rpcs3 = App.Services.Config.Rpcs3Path;
         var pes3 = App.Services.Paths.Pes3Root ?? "(configure RPCS3)";
         var cacheNote = App.Services.Config.DeleteCacheAfterPlay
-            ? "Session cache (cleared after play)"
-            : $"Persistent cache: {App.Services.Paths.CacheRoot}";
+            ? "Session mode: full decrypt every play (slow)."
+            : $"Persistent cache: {App.Services.Paths.CacheRoot} — after first decrypt, re-insert is instant.";
         SubtitleText.Text = $"RPCS3: {Path.GetFileName(rpcs3)}  •  PES3: {pes3}";
         FooterText.Text = $"DIY and retail discs use the same PES3 cache for fast RPCS3 loading. {cacheNote}.";
     }
@@ -163,9 +163,12 @@ public partial class MainWindow : Window
         }
         else if (status.Kind is DiscVolumeKind.EncryptedRetail or DiscVolumeKind.IncompleteBurn)
         {
-            var cached = App.Services.Cache.TryGetCached(drive.Id, null, null);
+            var cached = App.Services.Cache.TryGetCached(drive.Id, null, null)
+                ?? App.Services.Cache.TryGetSoleIndexedRetail();
             if (cached is not null)
-                detail = "Decrypted game already in cache — play without re-decrypting.";
+                detail = "Decrypted copy on disk — use Play from cache (no re-decrypt).";
+            else if (!App.Services.Config.DeleteCacheAfterPlay)
+                detail = "First decrypt takes 30–90+ min; keep persistent cache for instant replay.";
         }
 
         stack.Children.Add(new TextBlock
@@ -195,7 +198,8 @@ public partial class MainWindow : Window
         {
             if (App.Services.Config.EnableRetailDecrypt)
             {
-                var cached = App.Services.Cache.TryGetCached(drive.Id, null, null);
+                var cached = App.Services.Cache.TryGetCached(drive.Id, null, null)
+                    ?? App.Services.Cache.TryGetSoleIndexedRetail();
                 if (cached is not null)
                 {
                     var playCache = new Button
@@ -247,6 +251,8 @@ public partial class MainWindow : Window
 
         PlaySession session;
         var cached = App.Services.Cache.TryGetCached(drive.Id, game.TitleId, null);
+        if (cached is null && !LegalTermsWindow.Prompt(this))
+            return;
         if (cached is not null)
         {
             session = App.Services.Cache.SessionFromCached(cached);
@@ -292,6 +298,9 @@ public partial class MainWindow : Window
 
     private async Task DecryptAndPlayAsync(OpticalDrive drive)
     {
+        if (!LegalTermsWindow.Prompt(this))
+            return;
+
         if (!App.Services.Decryptor.IsAvailable)
         {
             MessageBox.Show(this,
@@ -307,11 +316,23 @@ public partial class MainWindow : Window
         var cache = App.Services.Cache;
         var paths = App.Services.Paths;
 
-        var cached = cache.TryGetCached(drive.Id, null, null);
+        var cached = await cache.TryGetRetailCachedAsync(
+            drive,
+            token => App.Services.Decryptor.ProbeDiscAsync(drive, token)).ConfigureAwait(true);
         if (cached is not null)
         {
             await PlayFromCacheAsync(cached);
             return;
+        }
+
+        DiscProbeResult? probe = null;
+        try
+        {
+            probe = await App.Services.Decryptor.ProbeDiscAsync(drive).ConfigureAwait(true);
+        }
+        catch
+        {
+            // ignore
         }
 
         string outputDir;
@@ -324,7 +345,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            outputDir = cache.ResolveRetailOutputDir(null);
+            outputDir = cache.ResolveRetailOutputDir(probe?.ProductCode);
             Directory.CreateDirectory(outputDir);
             cleanup = new List<string>();
         }

@@ -77,6 +77,10 @@ if (Test-Path -LiteralPath $stageDir) {
 }
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 Get-ChildItem -Path $distDir -Force | Copy-Item -Destination $stageDir -Recurse -Force
+& (Join-Path $root 'scripts\Copy-LegalDocs.ps1') -Destination $stageDir
+if (Test-Path -LiteralPath (Join-Path $installerDir 'legal.txt')) {
+    Copy-Item -LiteralPath (Join-Path $installerDir 'legal.txt') -Destination $stageDir -Force
+}
 foreach ($helper in @('Install-DotNet-Runtimes.ps1', 'Install-DotNet-Runtimes.cmd')) {
     Copy-Item -LiteralPath (Join-Path $installerDir $helper) -Destination $stageDir -Force
 }

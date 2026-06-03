@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using PES3Disc.Core;
 
 namespace PES3Disc.Avalonia;
 
@@ -30,6 +31,9 @@ public partial class SetupWindow : Window
 
     private void Quit_Click(object? sender, RoutedEventArgs e) => Close(false);
 
+    private void OpenLegal_Click(object? sender, RoutedEventArgs e) =>
+        LegalTerms.TryOpenDocument("LEGAL.md");
+
     private void Continue_Click(object? sender, RoutedEventArgs e)
     {
         var path = Rpcs3Box.Text?.Trim() ?? "";
@@ -39,11 +43,18 @@ public partial class SetupWindow : Window
             return;
         }
 
+        if (LegalOwnCheck.IsChecked != true || LegalNoShareCheck.IsChecked != true || LegalComplyCheck.IsChecked != true)
+        {
+            new AvaloniaUiHost().ShowWarning("Confirm all legal statements to continue.");
+            return;
+        }
+
         var c = App.Services.Config;
         c.Rpcs3Path = path;
         c.DeleteCacheAfterPlay = DeleteCacheCheck.IsChecked == true;
         c.EnableRetailDecrypt = RetailCheck.IsChecked == true;
         c.SetupComplete = true;
+        LegalTerms.RecordAcceptance(c);
         App.Services.SaveConfig();
         App.Controller = new PES3Disc.ViewModels.Pes3AppController(App.Services);
         Close(true);

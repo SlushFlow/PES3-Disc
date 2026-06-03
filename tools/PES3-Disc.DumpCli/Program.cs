@@ -10,6 +10,8 @@ internal static class Program
 
     public static async Task<int> Main(string[] args)
     {
+        PES3Disc.Core.PerformanceTuning.ApplyRuntimeDefaults();
+        PES3Disc.Core.PerformanceTuning.TryBoostCurrentProcess();
         try
         {
             var options = CliOptions.Parse(args);
@@ -19,12 +21,16 @@ internal static class Program
                 return 0;
             }
 
+            if (options.ProbeOnly)
+                return await RunProbeAsync(options).ConfigureAwait(false);
+
             SettingsProvider.Settings = SettingsProvider.Settings with
             {
                 OutputDir = options.OutputBase,
                 IrdDir = options.IrdDir,
                 CopyBdmv = false,
                 CopyPs3Update = false,
+                ShowDetails = false,
             };
 
             using var dumper = new Dumper();
@@ -116,26 +122,32 @@ internal static class Program
 
     private static async Task WriteProgressLoopAsync(Dumper dumper, string path, CancellationToken token)
     {
+        long lastSectors = -1;
         while (!token.IsCancellationRequested)
         {
             try
             {
-                var progress = new DumpProgress
+                var processed = dumper.ProcessedSectors + dumper.CurrentFileSector;
+                if (processed != lastSectors || dumper.TotalFileSectors == 0)
                 {
-                    Phase = dumper.TotalFileSectors > 0 ? "dumping" : "analyzing",
-                    CurrentFile = dumper.CurrentFileNumber,
-                    TotalFiles = dumper.TotalFileCount,
-                    ProcessedSectors = dumper.ProcessedSectors + dumper.CurrentFileSector,
-                    TotalFileSectors = dumper.TotalFileSectors,
-                    ProductCode = dumper.ProductCode,
-                    Title = dumper.Title,
-                };
-                await File.WriteAllTextAsync(path, JsonSerializer.Serialize(progress, JsonOptions), token).ConfigureAwait(false);
+                    lastSectors = processed;
+                    var progress = new DumpProgress
+                    {
+                        Phase = dumper.TotalFileSectors > 0 ? "dumping" : "analyzing",
+                        CurrentFile = dumper.CurrentFileNumber,
+                        TotalFiles = dumper.TotalFileCount,
+                        ProcessedSectors = processed,
+                        TotalFileSectors = dumper.TotalFileSectors,
+                        ProductCode = dumper.ProductCode,
+                        Title = dumper.Title,
+                    };
+                    await File.WriteAllTextAsync(path, JsonSerializer.Serialize(progress, JsonOptions), token).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) { break; }
             catch { /* ignore write races */ }
 
-            try { await Task.Delay(400, token).ConfigureAwait(false); }
+            try { await Task.Delay(250, token).ConfigureAwait(false); }
             catch (OperationCanceledException) { break; }
         }
     }
@@ -145,6 +157,30 @@ internal static class Program
 
     private static void EmitError(string code, string message) =>
         Console.WriteLine(JsonSerializer.Serialize(new { type = "error", code, message }, JsonOptions));
+
+    private static async Task<int> RunProbeAsync(CliOptions options)
+    {
+        using var dumper = new Dumper();
+        var inDir = options.MountPath ?? (options.DriveLetter.HasValue
+            ? $"{options.DriveLetter.Value}:\\"
+            : string.Empty);
+        await Task.Run(() => dumper.DetectDisc(inDir)).ConfigureAwait(false);
+
+        if (string.IsNullOrEmpty(dumper.ProductCode))
+        {
+            EmitError("no_disc", "No PS3 disc found.");
+            return 2;
+        }
+
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            type = "probe",
+            Success = true,
+            ProductCode = dumper.ProductCode,
+            Title = dumper.Title,
+        }, JsonOptions));
+        return 0;
+    }
 }
 
 internal sealed class CliOptions
@@ -154,6 +190,7 @@ internal sealed class CliOptions
     public required string OutputBase { get; init; }
     public required string IrdDir { get; init; }
     public string? ProgressFile { get; init; }
+    public bool ProbeOnly { get; init; }
     public bool ShowHelp { get; init; }
 
     public const string HelpText = """
@@ -161,9 +198,11 @@ PES3-Disc retail disc decryptor (uses PS3 Disc Dumper engine)
 
 Usage:
   pes3-disc-dump --output <folder> [--drive <letter> | --mount <path>] [--ird-dir <folder>] [--progress <file.json>]
+  pes3-disc-dump --probe [--drive <letter> | --mount <path>]
 
 Options:
-  --output, -o    Base folder for decrypted dump (required)
+  --probe         Read disc product code only (fast; no decrypt)
+  --output, -o    Base folder for decrypted dump (required unless --probe)
   --drive, -d     Windows optical drive letter (e.g. E)
   --mount, -m     Mounted disc path (Linux: /run/media/user/… or /media/…)
   --ird-dir       IRD / key cache folder
@@ -181,12 +220,16 @@ Exit codes: 0=ok, 1=error, 2=no disc, 3=cancelled, 4=validation, 5=no eboot, 6=n
         string? irdDir = null;
         string? progress = null;
         var showHelp = false;
+        var probeOnly = false;
 
         for (var i = 0; i < args.Length; i++)
         {
             var a = args[i];
             switch (a)
             {
+                case "--probe":
+                    probeOnly = true;
+                    break;
                 case "-h":
                 case "--help":
                     showHelp = true;
@@ -220,7 +263,7 @@ Exit codes: 0=ok, 1=error, 2=no disc, 3=cancelled, 4=validation, 5=no eboot, 6=n
         if (showHelp)
             return new CliOptions { ShowHelp = true, OutputBase = "", IrdDir = "" };
 
-        if (string.IsNullOrWhiteSpace(output))
+        if (!probeOnly && string.IsNullOrWhiteSpace(output))
             throw new ArgumentException("Missing required --output folder.");
 
         irdDir ??= PES3Disc.Core.PlatformPaths.DefaultIrdDirectory;
@@ -229,9 +272,10 @@ Exit codes: 0=ok, 1=error, 2=no disc, 3=cancelled, 4=validation, 5=no eboot, 6=n
         {
             DriveLetter = drive,
             MountPath = mount is null ? null : Path.GetFullPath(mount),
-            OutputBase = Path.GetFullPath(output),
+            OutputBase = string.IsNullOrWhiteSpace(output) ? "" : Path.GetFullPath(output),
             IrdDir = Path.GetFullPath(irdDir),
             ProgressFile = progress,
+            ProbeOnly = probeOnly,
         };
     }
 

@@ -3,6 +3,10 @@ namespace PES3Disc.Core;
 public interface IDiscDumpBackend
 {
     bool IsAvailable { get; }
+    /// <summary>Reads disc product code from PS3_DISC.SFB (seconds, no full dump).</summary>
+    Task<DiscProbeResult?> ProbeDiscAsync(
+        OpticalDrive drive,
+        CancellationToken cancellationToken = default);
     Task<DecryptResult> DecryptAsync(
         OpticalDrive drive,
         string outputBase,

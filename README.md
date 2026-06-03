@@ -211,6 +211,21 @@ Example:
 - **RPCS3 opens but game does not start:** Verify `EBOOT.BIN` exists on the disc; test manually:  
   `"C:\path\to\rpcs3.exe" "X:\PS3_GAME\USRDIR\EBOOT.BIN"`
 
-## License
+## Legal and privacy
 
-Use and modify freely; RPCS3 is a separate project with its own license.
+PES3-Disc is licensed under the [MIT License](LICENSE). See also:
+
+- [LEGAL.md](LEGAL.md) — lawful use, prohibited uses, persistent cache, disclaimer
+- [docs/USER-LEGAL-GUIDE.md](docs/USER-LEGAL-GUIDE.md) — short checklist for end users
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — ps3-disc-dumper, .NET, Avalonia, etc.
+- [PRIVACY.md](PRIVACY.md) — optional bug report API; local cache stays on your PC
+- [SECURITY.md](SECURITY.md) — reporting vulnerabilities
+
+The app asks you to confirm you own the disc, will not redistribute files, and comply with local law before decrypt or copy. You must own discs you decrypt. PES3-Disc is not affiliated with Sony, PlayStation, or RPCS3.
+
+## Performance tips
+
+- Use a **fast SSD** for `DumpCachePath` / `RPCS3\PES3\cache` (Settings).
+- Turn off **Delete cache after play** to avoid re-decrypting the same disc.
+- Use a **compatible Blu-ray drive** ([RPCS3 quickstart](https://rpcs3.net/quickstart#dumping_drives)); dump speed is limited by the drive and disc, not the GUI.
+- DIY discs are staged with multi-threaded **robocopy** (Windows) or **rsync** (Linux) when available.

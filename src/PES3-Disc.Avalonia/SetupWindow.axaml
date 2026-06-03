@@ -12,7 +12,14 @@
                Text="Point PES3-Disc at your RPCS3 install. On Linux this is usually ~/.local/share/rpcs3/rpcs3 or /usr/bin/rpcs3."/>
     <TextBox x:Name="Rpcs3Box" Watermark="Path to rpcs3 executable"/>
     <Button Classes="secondary" Content="Browse…" Click="Browse_Click" HorizontalAlignment="Left"/>
-    <CheckBox x:Name="DeleteCacheCheck" Content="Delete cache when RPCS3 exits" Foreground="#E8EDF4"/>
+    <CheckBox x:Name="DeleteCacheCheck" Content="Delete decrypted game when RPCS3 exits (slow — re-decrypt each time)"
+              IsChecked="False" Foreground="#E8EDF4"/>
+    <TextBlock Classes="muted" TextWrapping="Wrap"
+               Text="Leave unchecked to keep decrypt on SSD. First decrypt is long; later inserts use Play from cache."/>
+    <CheckBox x:Name="LegalOwnCheck" Foreground="#E8EDF4" Content="I own discs I decrypt or copy."/>
+    <CheckBox x:Name="LegalNoShareCheck" Foreground="#E8EDF4" Content="I will not redistribute decrypted or copied files."/>
+    <CheckBox x:Name="LegalComplyCheck" Foreground="#E8EDF4" Content="I follow copyright and circumvention laws in my region."/>
+    <Button Classes="secondary" Content="Read LEGAL.md" Click="OpenLegal_Click" HorizontalAlignment="Left"/>
     <CheckBox x:Name="RetailCheck" Content="Offer retail disc decryption" IsChecked="True" Foreground="#E8EDF4"/>
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
       <Button Classes="secondary" Content="Quit" Click="Quit_Click"/>

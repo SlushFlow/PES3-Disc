@@ -103,6 +103,8 @@ elseif (Test-Path -LiteralPath $dumpProj) {
     Write-Host 'SKIP: pes3-disc-dump.exe needs .NET 10 SDK (install alongside .NET 8 for retail decrypt).' -ForegroundColor Yellow
 }
 
+& (Join-Path $root 'scripts\Copy-LegalDocs.ps1') -Destination $out
+
 $exe = Join-Path $out 'PES3-Disc.exe'
 Write-Host ''
 Write-Host "Done: $exe"
