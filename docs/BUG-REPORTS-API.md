@@ -70,6 +70,8 @@ The desktop apps show a **Developer** badge with a colored dot:
 
 Use the **PES3 Dev Client** at `C:\Users\Maksim\PES3-Dev` → run `Build-DevClient.ps1` or `dotnet run` in `PES3.DevClient` → set **Auto**, **Green**, **Yellow**, or **Grey**. Manual modes override the schedule until you choose **Auto** again.
 
+PES3-Disc and the Dev Client refresh status **without restart**: they poll the API every ~15–20 seconds and, in **auto** mode, flip green/grey at 8 AM and 10 PM Eastern via `DevStatusTracker` in [`PES3-Disc.BugReports`](../src/PES3-Disc.BugReports/DevStatusTracker.cs).
+
 ## Local API dev
 
 ```powershell

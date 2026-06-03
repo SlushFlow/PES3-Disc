@@ -30,6 +30,40 @@ public static class DevStatusLogic
         string.IsNullOrWhiteSpace(manualMode)
         || string.Equals(manualMode.Trim(), "auto", StringComparison.OrdinalIgnoreCase);
 
+    public static DevStatusResponse BuildDisplay(string manualMode, DateTime? updatedAtUtc = null)
+    {
+        var effective = ResolveEffective(manualMode, DateTime.UtcNow);
+        return new DevStatusResponse
+        {
+            Effective = effective.ToApiValue(),
+            Mode = (manualMode ?? "auto").Trim().ToLowerInvariant(),
+            Label = GetLabel(effective),
+            IsAutoSchedule = IsAutoMode(manualMode),
+            UpdatedAtUtc = updatedAtUtc,
+        };
+    }
+
+    /// <summary>Time until green/grey flips when mode is auto (8 AM / 10 PM Eastern).</summary>
+    public static TimeSpan GetDelayUntilNextBoundary(DateTime utcNow)
+    {
+        var et = ToEastern(utcNow);
+        DateTime nextEt;
+        if (et.Hour < WorkStartHourEt)
+            nextEt = et.Date.AddHours(WorkStartHourEt);
+        else if (et.Hour < WorkEndHourEt)
+            nextEt = et.Date.AddHours(WorkEndHourEt);
+        else
+            nextEt = et.Date.AddDays(1).AddHours(WorkStartHourEt);
+
+        var nextUtc = ToUtcFromEastern(nextEt);
+        var delay = nextUtc - utcNow;
+        if (delay < TimeSpan.FromSeconds(1))
+            delay = TimeSpan.FromSeconds(1);
+        if (delay > TimeSpan.FromDays(1))
+            delay = TimeSpan.FromMinutes(1);
+        return delay;
+    }
+
     public static string GetLabel(DevStatusKind kind) => kind switch
     {
         DevStatusKind.Green => "At home and working",
@@ -52,12 +86,28 @@ public static class DevStatusLogic
             ? utcNow
             : DateTime.SpecifyKind(utcNow, DateTimeKind.Utc);
 
+        var tz = TryGetEasternTimeZone();
+        return tz is not null
+            ? TimeZoneInfo.ConvertTimeFromUtc(utc, tz)
+            : utc.AddHours(-5);
+    }
+
+    private static DateTime ToUtcFromEastern(DateTime easternUnspecified)
+    {
+        var tz = TryGetEasternTimeZone();
+        var local = DateTime.SpecifyKind(easternUnspecified, DateTimeKind.Unspecified);
+        return tz is not null
+            ? TimeZoneInfo.ConvertTimeToUtc(local, tz)
+            : local.AddHours(5);
+    }
+
+    private static TimeZoneInfo? TryGetEasternTimeZone()
+    {
         foreach (var id in new[] { "America/New_York", "Eastern Standard Time" })
         {
             try
             {
-                var tz = TimeZoneInfo.FindSystemTimeZoneById(id);
-                return TimeZoneInfo.ConvertTimeFromUtc(utc, tz);
+                return TimeZoneInfo.FindSystemTimeZoneById(id);
             }
             catch (TimeZoneNotFoundException)
             {
@@ -69,6 +119,6 @@ public static class DevStatusLogic
             }
         }
 
-        return utc.AddHours(-5);
+        return null;
     }
 }

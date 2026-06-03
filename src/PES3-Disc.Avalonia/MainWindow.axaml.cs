@@ -15,11 +15,10 @@ public partial class MainWindow : Window
     private readonly AvaloniaUiHost _ui = new();
     private readonly DispatcherTimer _scanTimer;
     private readonly DispatcherTimer _bugReportTimer;
-    private readonly DispatcherTimer _devStatusTimer;
+    private readonly DevStatusTracker _devStatusTracker;
     private readonly BugReportResolutionPoller _bugReportPoller = new();
     private bool _scanInProgress;
     private bool _bugReportPollInProgress;
-    private bool _devStatusPollInProgress;
 
     public MainWindow()
     {
@@ -34,36 +33,16 @@ public partial class MainWindow : Window
         _bugReportTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(45) };
         _bugReportTimer.Tick += async (_, _) => await PollBugReportResolutionsAsync();
         _bugReportTimer.Start();
-        _devStatusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
-        _devStatusTimer.Tick += async (_, _) => await PollDevStatusAsync();
-        _devStatusTimer.Start();
+        _devStatusTracker = new DevStatusTracker(App.Controller.BugReportApiUrl);
+        _devStatusTracker.Changed += status =>
+            Dispatcher.UIThread.Post(() => DevStatus.Apply(status));
+        _devStatusTracker.Start(TimeSpan.FromSeconds(20));
+        Closed += (_, _) => _devStatusTracker.Dispose();
         Opened += async (_, _) =>
         {
             await RunScanAsync();
             await PollBugReportResolutionsAsync();
-            await PollDevStatusAsync();
         };
-    }
-
-    private async Task PollDevStatusAsync()
-    {
-        if (_devStatusPollInProgress)
-            return;
-        _devStatusPollInProgress = true;
-        try
-        {
-            using var client = new DevStatusClient(App.Controller.BugReportApiUrl);
-            var status = await client.GetStatusAsync();
-            DevStatus.Apply(status);
-        }
-        catch
-        {
-            DevStatus.Apply(null);
-        }
-        finally
-        {
-            _devStatusPollInProgress = false;
-        }
     }
 
     private async Task PollBugReportResolutionsAsync()
