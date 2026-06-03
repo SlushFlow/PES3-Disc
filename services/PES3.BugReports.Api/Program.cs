@@ -98,6 +98,15 @@ app.MapGet("/api/reports/{id}/resolution", async (string id, CancellationToken c
     return resolution is null ? Results.NotFound() : Results.Ok(resolution);
 });
 
+app.MapDelete("/api/reports/{id}", async (string id, HttpContext ctx, CancellationToken ct) =>
+{
+    if (!IsAuthorized(ctx, devApiKey))
+        return Results.Unauthorized();
+
+    var ok = await store.DeleteReportAsync(id, ct).ConfigureAwait(false);
+    return ok ? Results.NoContent() : Results.NotFound(new { error = "Report not found." });
+});
+
 app.MapPost("/api/reports/{id}/resolve", async (string id, ResolveReportRequest req, HttpContext ctx, CancellationToken ct) =>
 {
     if (!IsAuthorized(ctx, devApiKey))

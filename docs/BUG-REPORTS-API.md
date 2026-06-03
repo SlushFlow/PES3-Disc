@@ -48,6 +48,7 @@ Remove the free-tier `/tmp` `DATABASE_PATH` if you switch to a disk.
 | GET | `/api/reports` | `X-Dev-Key` |
 | GET | `/api/summaries` | `X-Dev-Key` |
 | POST | `/api/reports/{id}/resolve` | `X-Dev-Key` — status: `declined`, `to_be_fixed`, `fixed` + optional message |
+| DELETE | `/api/reports/{id}` | `X-Dev-Key` — permanently delete report (Dev Client) |
 | GET | `/api/reports/{id}/resolution` | none — PES3-Disc polls this for user notifications |
 | GET | `/api/dev-status` | none — effective status for PES3-Disc UI (green / yellow / grey dot) |
 | PUT | `/api/dev-status` | `X-Dev-Key` — body `{ "mode": "auto" \| "green" \| "yellow" \| "grey" }` |

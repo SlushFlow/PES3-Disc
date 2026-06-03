@@ -222,6 +222,67 @@ public sealed class BugReportStore
             reader.IsDBNull(4) ? null : DateTime.Parse(reader.GetString(4), null, System.Globalization.DateTimeStyles.RoundtripKind));
     }
 
+    public async Task<bool> DeleteReportAsync(string reportId, CancellationToken ct = default)
+    {
+        using var conn = Open();
+        using var tx = conn.BeginTransaction();
+
+        string? clusterId = null;
+        using (var select = conn.CreateCommand())
+        {
+            select.Transaction = tx;
+            select.CommandText = "SELECT ClusterId FROM Reports WHERE Id = $id";
+            select.Parameters.AddWithValue("$id", reportId);
+            var result = await select.ExecuteScalarAsync(ct).ConfigureAwait(false);
+            if (result is null or DBNull)
+                return false;
+            clusterId = (string)result;
+        }
+
+        using (var delete = conn.CreateCommand())
+        {
+            delete.Transaction = tx;
+            delete.CommandText = "DELETE FROM Reports WHERE Id = $id";
+            delete.Parameters.AddWithValue("$id", reportId);
+            await delete.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
+
+        var now = DateTime.UtcNow;
+        using (var countCmd = conn.CreateCommand())
+        {
+            countCmd.Transaction = tx;
+            countCmd.CommandText = "SELECT COUNT(*) FROM Reports WHERE ClusterId = $clusterId";
+            countCmd.Parameters.AddWithValue("$clusterId", clusterId);
+            var remaining = Convert.ToInt32(await countCmd.ExecuteScalarAsync(ct).ConfigureAwait(false));
+
+            if (remaining == 0)
+            {
+                using var dropCluster = conn.CreateCommand();
+                dropCluster.Transaction = tx;
+                dropCluster.CommandText = "DELETE FROM Clusters WHERE Id = $clusterId";
+                dropCluster.Parameters.AddWithValue("$clusterId", clusterId);
+                await dropCluster.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            }
+            else
+            {
+                using var update = conn.CreateCommand();
+                update.Transaction = tx;
+                update.CommandText = """
+                    UPDATE Clusters
+                    SET ReportCount = $count, UpdatedAtUtc = $updated
+                    WHERE Id = $clusterId
+                    """;
+                update.Parameters.AddWithValue("$count", remaining);
+                update.Parameters.AddWithValue("$updated", now.ToString("O"));
+                update.Parameters.AddWithValue("$clusterId", clusterId);
+                await update.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            }
+        }
+
+        tx.Commit();
+        return true;
+    }
+
     public async Task<bool> ResolveReportAsync(string reportId, string status, string? message, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;

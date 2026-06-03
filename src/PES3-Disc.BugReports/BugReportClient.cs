@@ -97,6 +97,20 @@ public sealed class BugReportClient : IDisposable
         }
     }
 
+    public async Task DeleteReportAsync(string devApiKey, string reportId, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"{_baseUrl}/api/reports/{reportId}");
+        request.Headers.Add("X-Dev-Key", devApiKey);
+        using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return;
+        if (!response.IsSuccessStatusCode)
+        {
+            var detail = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            throw new InvalidOperationException($"Delete failed ({(int)response.StatusCode}): {detail}");
+        }
+    }
+
     public async Task<BugReportResolutionDto?> FetchResolutionAsync(string reportId, CancellationToken ct = default)
     {
         using var response = await _http.GetAsync($"{_baseUrl}/api/reports/{reportId}/resolution", ct);
