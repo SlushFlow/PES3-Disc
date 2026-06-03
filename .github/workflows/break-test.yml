@@ -67,8 +67,7 @@ jobs:
           if ($out -notmatch 'PES3 DIY Test Disc') { throw 'CLI DIY fixture missing' }
           if ($out -notmatch 'EncryptedRetail|Encrypted retail|decryption') { throw 'CLI retail fixture missing' }
 
-      - name: Docker API build (Render parity)
-        run: docker build -t pes3-api-test .
+      # Render Dockerfile is Linux-only; validated in break-linux (Docker unavailable on windows-latest).
 
   break-linux:
     runs-on: ubuntu-latest
