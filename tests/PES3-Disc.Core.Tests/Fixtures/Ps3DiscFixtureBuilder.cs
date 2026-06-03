@@ -155,11 +155,18 @@ public static class Ps3DiscFixtureBuilder
 
     public static string? FindRepoRoot()
     {
-        var dir = AppContext.BaseDirectory;
-        for (var i = 0; i < 8; i++)
+        var workspace = Environment.GetEnvironmentVariable("GITHUB_WORKSPACE");
+        if (!string.IsNullOrWhiteSpace(workspace))
         {
-            if (Directory.Exists(Path.Combine(dir, "test-fixtures"))
-                && File.Exists(Path.Combine(dir, "PES3-Disc.sln")))
+            var ws = Path.GetFullPath(workspace);
+            if (Directory.Exists(Path.Combine(ws, "test-fixtures")))
+                return ws;
+        }
+
+        var dir = AppContext.BaseDirectory;
+        for (var i = 0; i < 12; i++)
+        {
+            if (Directory.Exists(Path.Combine(dir, "test-fixtures")))
                 return dir;
 
             var parent = Directory.GetParent(dir);

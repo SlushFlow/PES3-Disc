@@ -58,13 +58,26 @@ jobs:
           dotnet build src/PES3-Disc.Core/PES3-Disc.Core.csproj -c Release -v q -p:LangVersion=12
           dotnet build tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release -v q -p:LangVersion=12
 
-      - name: Core dotnet tests
-        run: |
-          set -euo pipefail
-          for class in BreakTests DevStatusLogicTests BugReportLimitsTests ReportClusteringTests LegalTermsTests DiscDetectorTests GameCacheServiceTests; do
-            echo "=== Core: $class ==="
-            dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~$class"
-          done
+      - name: Core tests - BreakTests
+        run: dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~BreakTests"
+
+      - name: Core tests - DevStatusLogicTests
+        run: dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~DevStatusLogicTests"
+
+      - name: Core tests - BugReportLimitsTests
+        run: dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~BugReportLimitsTests"
+
+      - name: Core tests - ReportClusteringTests
+        run: dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~ReportClusteringTests"
+
+      - name: Core tests - LegalTermsTests
+        run: dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~LegalTermsTests"
+
+      - name: Core tests - DiscDetectorTests
+        run: dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~DiscDetectorTests"
+
+      - name: Core tests - GameCacheServiceTests
+        run: dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~GameCacheServiceTests"
 
       - name: Build + run API tests (exclude rate limit)
         run: |
