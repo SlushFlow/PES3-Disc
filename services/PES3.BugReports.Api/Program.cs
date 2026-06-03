@@ -130,6 +130,8 @@ app.MapPost("/api/reports/{id}/resolve", async (string id, ResolveReportRequest 
 
 app.Run();
 
+public partial class Program { }
+
 static bool IsAuthorized(HttpContext ctx, string expectedKey)
 {
     if (ctx.Request.Headers.TryGetValue("X-Dev-Key", out var key))

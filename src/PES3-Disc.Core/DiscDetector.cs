@@ -68,7 +68,7 @@ public static partial class DiscDetector
             };
         }
 
-        if (Directory.Exists(ps3Game) && !hasParam)
+        if (Directory.Exists(ps3Game))
         {
             return new DiscVolumeStatus
             {

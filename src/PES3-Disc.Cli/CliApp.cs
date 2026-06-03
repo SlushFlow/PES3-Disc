@@ -41,6 +41,7 @@ public static class CliApp
             "Usage:",
             "  pes3-disc                 Watch optical / mounted volumes (default)",
             "  pes3-disc scan            List PS3 discs once",
+            "  pes3-disc scan --test-volume <path>  Scan fixture folder(s) (CI / dev)",
             "  pes3-disc play <n>        Play disc index from last scan",
             "  pes3-disc decrypt <n>     Decrypt retail disc and play",
             "  --accept-legal-terms      Required once for play/decrypt (see LEGAL.md)",
@@ -66,8 +67,57 @@ public static class CliApp
 
     private static int ScanCommand(string[] args)
     {
+        var testRoots = ParseTestVolumeArgs(args);
+        if (testRoots.Count > 0)
+        {
+            RunScanTestVolumes(testRoots);
+            return 0;
+        }
+
         RunScan();
         return 0;
+    }
+
+    private static List<string> ParseTestVolumeArgs(string[] args)
+    {
+        var roots = new List<string>();
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (args[i] is "--test-volume" or "-T" && i + 1 < args.Length)
+                roots.Add(args[++i]);
+        }
+
+        return roots;
+    }
+
+    private static void RunScanTestVolumes(IReadOnlyList<string> roots)
+    {
+        _lastScan.Clear();
+        var index = 0;
+        foreach (var root in roots)
+        {
+            var normalized = Path.GetFullPath(root);
+            if (!normalized.EndsWith(Path.DirectorySeparatorChar))
+                normalized += Path.DirectorySeparatorChar;
+
+            var drive = new OpticalDrive
+            {
+                Letter = (char)('A' + (index % 26)),
+                Root = normalized,
+                Id = $"TESTVOL|{normalized}",
+                VolumeLabel = Path.GetFileName(normalized.TrimEnd(Path.DirectorySeparatorChar, '/')),
+            };
+
+            var status = DiscDetector.GetVolumeStatus(normalized);
+            if (status.Kind == DiscVolumeKind.NoPs3Layout && !_svc.Config.DecryptUnknownOpticalMedia)
+                continue;
+
+            _lastScan.Add((drive, status));
+            PrintVolume(index++, drive, status);
+        }
+
+        if (_lastScan.Count == 0)
+            Console.WriteLine("No PS3 layout detected on test volumes.");
     }
 
     private static void RunScan()
