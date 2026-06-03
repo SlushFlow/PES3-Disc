@@ -41,15 +41,28 @@ jobs:
           dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName!~BreakApiRateLimitTests"
           dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~BreakApiRateLimitTests"
 
-      - name: PowerShell tests (Windows)
+      - name: PowerShell detection tests
         shell: pwsh
+        timeout-minutes: 10
         run: |
           ./test-fixtures/Build-TestFixtures.ps1
           ./Test-Ps3DiscDetection.ps1
-          ./Test-PES3-Integration.ps1 -Quick
-          ./Test-PES3-Break.ps1
-          $cli = './src/PES3-Disc.Cli/bin/Release/net8.0/pes3-disc-cli.dll'
+
+      - name: PowerShell integration tests
+        shell: pwsh
+        timeout-minutes: 10
+        run: ./Test-PES3-Integration.ps1 -Quick
+
+      - name: PowerShell break tests
+        shell: pwsh
+        timeout-minutes: 10
+        run: ./Test-PES3-Break.ps1
+
+      - name: CLI fixture scan (Windows)
+        shell: pwsh
+        run: |
           dotnet build src/PES3-Disc.Cli/PES3-Disc.Cli.csproj -c Release -v q
+          $cli = './src/PES3-Disc.Cli/bin/Release/net8.0/pes3-disc-cli.dll'
           $out = dotnet exec $cli scan --test-volume ./test-fixtures/diy-demo-disc --test-volume ./test-fixtures/retail-encrypted-disc 2>&1 | Out-String
           if ($out -notmatch 'PES3 DIY Test Disc') { throw 'CLI DIY fixture missing' }
           if ($out -notmatch 'EncryptedRetail|Encrypted retail|decryption') { throw 'CLI retail fixture missing' }
