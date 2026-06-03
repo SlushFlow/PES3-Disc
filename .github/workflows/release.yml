@@ -5,6 +5,15 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: Create a GitHub Release and upload build artifacts
+        type: boolean
+        default: false
+      release_tag:
+        description: Release tag (e.g. v1.0.1). Required when creating a release.
+        type: string
+        required: false
 
 permissions:
   contents: write
@@ -22,6 +31,8 @@ jobs:
         run: |
           if ('${{ github.ref_type }}' -eq 'tag') {
             $v = '${{ github.ref_name }}' -replace '^v', ''
+          } elseif ('${{ github.event_name }}' -eq 'workflow_dispatch' -and '${{ inputs.create_release }}' -eq 'true' -and '${{ inputs.release_tag }}' -ne '') {
+            $v = '${{ inputs.release_tag }}' -replace '^v', ''
           } else {
             $v = '0.0.0-ci'
           }
@@ -116,6 +127,9 @@ jobs:
         run: |
           if [ "${{ github.ref_type }}" = "tag" ]; then
             v="${GITHUB_REF_NAME#v}"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.create_release }}" = "true" ] && [ -n "${{ inputs.release_tag }}" ]; then
+            v="${{ inputs.release_tag }}"
+            v="${v#v}"
           else
             v="0.0.0-ci"
           fi
@@ -157,9 +171,21 @@ jobs:
 
   release:
     needs: [build-windows, build-linux]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: >
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' &&
+       inputs.create_release == true &&
+       inputs.release_tag != '')
     runs-on: ubuntu-latest
     steps:
+      - name: Validate manual release inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ -z "${{ inputs.release_tag }}" ]; then
+            echo "::error::release_tag is required when create_release is enabled"
+            exit 1
+          fi
+
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -170,11 +196,26 @@ jobs:
       - name: List release files
         run: find release-assets -type f
 
+      - name: Resolve release tag
+        id: rel
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            tag="${{ github.ref_name }}"
+          else
+            tag="${{ inputs.release_tag }}"
+            case "$tag" in
+              v*) ;;
+              *) tag="v$tag" ;;
+            esac
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Publishing GitHub Release: $tag"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: PES3-Disc ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
+          name: PES3-Disc ${{ steps.rel.outputs.tag }}
+          tag_name: ${{ steps.rel.outputs.tag }}
           generate_release_notes: true
           files: |
             release-assets/PES3-Disc-Setup.exe

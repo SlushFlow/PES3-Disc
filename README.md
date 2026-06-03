@@ -30,7 +30,10 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-Or run the **Release** workflow manually under Actions (produces a CI build artifact, not a GitHub Release unless you use a tag).
+Or run the **Release** workflow manually under Actions:
+
+- **Artifacts only** — leave *Create a GitHub Release* unchecked (default).
+- **Publish a release** — check *Create a GitHub Release* and set *Release tag* (e.g. `v1.0.1`). The workflow builds, creates the tag on that commit, and uploads assets to GitHub Releases.
 
 ### Build installer locally
 
