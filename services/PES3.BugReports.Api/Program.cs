@@ -130,8 +130,6 @@ app.MapPost("/api/reports/{id}/resolve", async (string id, ResolveReportRequest 
 
 app.Run();
 
-public partial class Program { }
-
 static bool IsAuthorized(HttpContext ctx, string expectedKey)
 {
     if (ctx.Request.Headers.TryGetValue("X-Dev-Key", out var key))
@@ -141,3 +139,5 @@ static bool IsAuthorized(HttpContext ctx, string expectedKey)
 
 static string Truncate(string value, int max)
     => value.Length <= max ? value : value[..max];
+
+public partial class Program { }

@@ -44,8 +44,9 @@ chmod +x scripts/ci-test-linux.sh
 ./Test-PES3-Integration.ps1 -Quick
 ```
 
-## CI
+**Full local suite:**
 
-GitHub Actions workflow `.github/workflows/ci.yml` runs the full suite on **windows-latest** and **ubuntu-latest** on every push/PR to `main`.
-
-Covers: disc detection (DIY + retail), cache, bug-report API, dev status, legal terms, PowerShell integration (Windows), and Linux CLI `scan --test-volume`.
+```powershell
+./scripts/ci-test-windows.ps1   # Windows
+./scripts/ci-test-linux.sh      # Linux
+```
