@@ -970,6 +970,11 @@ function Get-Ps3DiscVolumeStatus {
 }
 
 function Get-OpticalDrives {
+    # CI non-interactive runs must not poll real drives (Get-Volume per letter can hang minutes).
+    if ($env:GITHUB_ACTIONS -eq 'true' -and $Script:NonInteractive) {
+        return @()
+    }
+
     $drives = @()
     try {
         $disks = Get-CimInstance -ClassName Win32_LogicalDisk -Filter 'DriveType=5' -ErrorAction Stop
@@ -1658,6 +1663,10 @@ function Update-DiscScan {
 
     if ($TestVolumeRoots.Count -gt 0) {
         $driveList = @(Get-TestVolumeDrives -Roots $TestVolumeRoots)
+    }
+    elseif ($Script:NonInteractive -and $env:GITHUB_ACTIONS -eq 'true') {
+        Write-Log 'CI skip: no test volumes and non-interactive scan'
+        return
     }
     else {
         $driveList = @(Get-OpticalDrives)

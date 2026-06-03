@@ -12,6 +12,11 @@ param(
     [switch]$ClearTestVolumes
 )
 
+# Child processes (Start-Process) may not bind multiple -TestVolume values; allow env fallback.
+if ((-not $TestVolume -or $TestVolume.Count -eq 0) -and $env:PES3_TEST_VOLUMES) {
+    $TestVolume = @($env:PES3_TEST_VOLUMES -split '\|' | Where-Object { $_ })
+}
+
 $ErrorActionPreference = 'SilentlyContinue'
 . (Join-Path $PSScriptRoot 'Ps3DiscRun.ps1')
 
