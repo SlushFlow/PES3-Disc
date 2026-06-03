@@ -19,6 +19,7 @@
         <TextBlock x:Name="SubtitleText" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
       </StackPanel>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+        <local:DevStatusBar x:Name="DevStatus" xmlns:local="clr-namespace:PES3Disc.App" Margin="0,0,12,0"/>
         <Button Content="Scan" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="Scan_Click"/>
         <Button Content="Report bug" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="ReportBug_Click"/>
         <Button Content="Settings" Style="{StaticResource SecondaryButton}" Click="Settings_Click"/>

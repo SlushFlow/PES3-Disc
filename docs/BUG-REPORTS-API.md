@@ -49,6 +49,25 @@ Remove the free-tier `/tmp` `DATABASE_PATH` if you switch to a disk.
 | GET | `/api/summaries` | `X-Dev-Key` |
 | POST | `/api/reports/{id}/resolve` | `X-Dev-Key` — status: `declined`, `to_be_fixed`, `fixed` + optional message |
 | GET | `/api/reports/{id}/resolution` | none — PES3-Disc polls this for user notifications |
+| GET | `/api/dev-status` | none — effective status for PES3-Disc UI (green / yellow / grey dot) |
+| PUT | `/api/dev-status` | `X-Dev-Key` — body `{ "mode": "auto" \| "green" \| "yellow" \| "grey" }` |
+
+### Dev status (PES3-Disc Windows & Linux)
+
+The desktop apps show a **Developer** badge with a colored dot:
+
+| Dot | Meaning |
+|-----|---------|
+| Green | At home and working |
+| Yellow | Break or vacation (manual only) |
+| Grey | Nighttime / day off |
+
+**Automatic schedule (Eastern Time)** when mode is `auto`:
+
+- **Green** from 8:00 AM through 9:59 PM ET  
+- **Grey** from 10:00 PM through 7:59 AM ET  
+
+Use the **PES3 Dev Client** (local) to set **Auto**, **Green**, **Yellow**, or **Grey**. Manual modes override the schedule until you choose **Auto** again.
 
 ## Local API dev
 

@@ -1,5 +1,6 @@
 using System.Globalization;
 using PES3.BugReports.Api;
+using PES3Disc.BugReports;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,11 +8,34 @@ var databasePath = Environment.GetEnvironmentVariable("DATABASE_PATH") ?? "repor
 var devApiKey = Environment.GetEnvironmentVariable("DEV_API_KEY") ?? "dev-change-me";
 
 var store = new BugReportStore(databasePath);
+var devStatusStore = new DevStatusStore(databasePath);
 var rateLimiter = new SubmitRateLimiter(maxPerWindow: 10);
 
 var app = builder.Build();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+app.MapGet("/api/dev-status", async (CancellationToken ct) =>
+{
+    var (mode, updated) = await devStatusStore.GetAsync(ct).ConfigureAwait(false);
+    return Results.Ok(devStatusStore.BuildResponse(mode, updated));
+});
+
+app.MapPut("/api/dev-status", async (DevStatusUpdateRequest req, HttpContext ctx, CancellationToken ct) =>
+{
+    if (!IsAuthorized(ctx, devApiKey))
+        return Results.Unauthorized();
+
+    try
+    {
+        var (mode, updated) = await devStatusStore.SetManualModeAsync(req.Mode ?? "auto", ct).ConfigureAwait(false);
+        return Results.Ok(devStatusStore.BuildResponse(mode, updated));
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
 
 app.MapPost("/api/reports", async (SubmitReportRequest req, HttpContext ctx, CancellationToken ct) =>
 {
@@ -21,7 +45,7 @@ app.MapPost("/api/reports", async (SubmitReportRequest req, HttpContext ctx, Can
 
     try
     {
-        var (title, body) = ReportClustering.Validate(req.Title, req.Body);
+        var (title, body) = PES3.BugReports.Api.ReportClustering.Validate(req.Title, req.Body);
         var platform = (req.Platform ?? "").Trim();
         if (platform.Length == 0)
             return Results.BadRequest(new { error = "Platform is required." });

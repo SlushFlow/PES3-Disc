@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:PES3Disc.Avalonia"
         x:Class="PES3Disc.Avalonia.MainWindow"
         Title="PES3-Disc"
         Width="720" Height="640"
@@ -11,7 +12,8 @@
         <TextBlock Text="PES3-Disc" FontSize="28" FontWeight="Bold" Foreground="#E8EDF4"/>
         <TextBlock x:Name="SubtitleText" Classes="muted" Margin="0,4,0,0"/>
       </StackPanel>
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+        <local:DevStatusBar x:Name="DevStatus"/>
         <Button Classes="secondary" Content="Scan" Click="Scan_Click"/>
         <Button Classes="secondary" Content="Report bug" Click="ReportBug_Click"/>
         <Button Classes="secondary" Content="Settings" Click="Settings_Click"/>

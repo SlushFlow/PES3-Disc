@@ -8,4 +8,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PES3-Disc.BugReports\PES3-Disc.BugReports.csproj" />
+  </ItemGroup>
 </Project>
