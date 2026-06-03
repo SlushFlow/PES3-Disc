@@ -26,7 +26,12 @@ function Require-Gh {
 }
 
 function Invoke-GhApi {
-    param([string]$Method, [string]$Path, [hashtable]$Body = @{})
+    param(
+        [string]$Method,
+        [string]$Path,
+        [hashtable]$Body = @{},
+        [switch]$Optional
+    )
     $args = @('api', '--method', $Method, $Path)
     foreach ($key in $Body.Keys) {
         $val = $Body[$key]
@@ -42,8 +47,14 @@ function Invoke-GhApi {
         }
     }
     Write-Host "==> $Method $Path" -ForegroundColor Cyan
-    & gh @args
-    if ($LASTEXITCODE -ne 0) { throw "gh api failed: $Method $Path" }
+    & gh @args 2>&1 | ForEach-Object { Write-Host $_ }
+    if ($LASTEXITCODE -ne 0) {
+        if ($Optional) {
+            Write-Host "WARN: skipped optional setting ($Path)" -ForegroundColor Yellow
+            return
+        }
+        throw "gh api failed: $Method $Path"
+    }
 }
 
 Require-Gh
@@ -75,10 +86,19 @@ Invoke-GhApi -Method PUT -Path "repos/$Repo/actions/permissions/workflow" -Body 
     can_approve_pull_request_reviews  = $false
 }
 
-# Do not run workflows from fork PRs (prevents malicious PR Actions on public repos).
-Invoke-GhApi -Method PUT -Path "repos/$Repo/actions/permissions/fork-pr-contributor" -Body @{
-    run_workflows_from_fork_pull_requests = $false
+# Public repos: require maintainer approval before fork PR workflows run.
+# (Private-only endpoint fork-pr-workflows-private-repos does not apply.)
+Invoke-GhApi -Method PUT -Path "repos/$Repo/actions/permissions/fork-pr-contributor-approval" -Body @{
+    approval_policy = 'all_external_contributors'
 }
+
+# Private repos only — skip on public repos without failing.
+Invoke-GhApi -Method PUT -Path "repos/$Repo/actions/permissions/fork-pr-workflows-private-repos" -Body @{
+    run_workflows_from_fork_pull_requests       = $false
+    send_write_tokens_to_workflows              = $false
+    send_secrets_and_variables                 = $false
+    require_approval_for_fork_pr_workflows     = $true
+} -Optional
 
 # --- Branch protection on main ---
 # Requires PR + 1 approval + CODEOWNER; no force-push/delete; applies to admins too.
@@ -98,7 +118,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Branch protection update failed' }
 Write-Host ''
 Write-Host 'Done. Summary of protections applied:' -ForegroundColor Green
 Write-Host '  - main: PR required, 1 approval, CODEOWNER review, no force-push/delete, admins included'
-Write-Host '  - Actions: local workflows only, SHA pinning, read-only GITHUB_TOKEN, no fork PR workflows'
+Write-Host '  - Actions: local workflows only, SHA pinning, read-only GITHUB_TOKEN'
+Write-Host '  - Fork PR workflows: require approval for all external contributors (public repo)'
 Write-Host '  - Wiki/projects disabled; squash-only merges; delete branch on merge'
 Write-Host ''
 Write-Host 'Note: Public repos can still be forked and receive PRs/issues from anyone.'
