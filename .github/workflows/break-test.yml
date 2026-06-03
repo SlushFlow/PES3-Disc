@@ -1,0 +1,59 @@
+name: Break test
+
+# Manual or push-triggered adversarial test run (DIY + retail fixtures).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/break-test.yml'
+      - 'Test-PES3-Break.ps1'
+      - 'Test-PES3-Integration.ps1'
+      - 'Test-Ps3DiscDetection.ps1'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'src/**'
+      - 'services/**'
+      - 'test-fixtures/**'
+      - 'Dockerfile'
+
+jobs:
+  break-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Standard + break tests (Windows)
+        shell: pwsh
+        run: |
+          ./scripts/ci-test-windows.ps1
+          ./Test-PES3-Break.ps1
+
+      - name: Docker API build (Render parity)
+        run: docker build -t pes3-api-test .
+
+  break-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Standard + break tests (Linux)
+        run: |
+          bash scripts/ci-test-linux.sh
+          dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --filter "FullyQualifiedName~BreakTests" -v n
+          dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --filter "FullyQualifiedName~BreakApiTests" -v n
+
+      - name: Docker API build (Render parity)
+        run: docker build -t pes3-api-test .
