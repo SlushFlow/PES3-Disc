@@ -33,7 +33,7 @@ git push origin v1.0.0
 Or run the **Release** workflow manually under Actions:
 
 - **Artifacts only** — leave *Create a GitHub Release* unchecked (default).
-- **Publish a release** — check *Create a GitHub Release* and set *Release tag* (e.g. `v1.0.1`). The workflow builds, creates the tag on that commit, and uploads assets to GitHub Releases.
+- **Publish a release** — check *Create a GitHub Release* and set *Release tag* to a semver tag like `v1.0.1` (must start with `v` and a version number). The workflow creates the tag on that commit and uploads assets.
 
 ### Build installer locally
 
