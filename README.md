@@ -1,231 +1,190 @@
 # PES3-Disc
 
-**P**lay**S**tation **E**mulation **S**tation **3** **Disc** — prompt to run PS3 discs in [RPCS3](https://rpcs3.net/) when you insert a disc.
+Play PS3 discs in [RPCS3](https://rpcs3.net/) from your PC. Insert a disc (or mount a PS3-style folder), and PES3-Disc helps you copy or decrypt the game, then launch RPCS3.
 
-Repository: [github.com/SlushFlow/PES3-Disc](https://github.com/SlushFlow/PES3-Disc)
+**Download:** [GitHub Releases](https://github.com/SlushFlow/PES3-Disc/releases)
 
-When you insert a PS3 game disc (or a burned disc with the standard PS3 folder layout), PES3-Disc helps you **decrypt** (retail discs) and **play** in **RPCS3**.
+| Platform | What to download |
+|----------|------------------|
+| **Windows 10/11** | `PES3-Disc-Setup.exe` (recommended) or portable ZIP |
+| **Linux (64-bit)** | `PES3-Disc-linux-x64.tar.gz` — see [Linux guide](docs/LINUX.md) |
 
-## Desktop app (recommended)
+PES3-Disc is not made by Sony, PlayStation, or the RPCS3 team.
 
-### Download (recommended)
+---
 
-**[GitHub Releases](https://github.com/SlushFlow/PES3-Disc/releases)**
+## What you need
 
-| Platform | Artifact |
-|----------|----------|
-| **Windows** | `PES3-Disc-Setup.exe` (installer) + portable ZIP |
-| **Linux** | `PES3-Disc-linux-x64.tar.gz` — **Avalonia GUI** + `pes3-disc-dump-linux` ([guide](docs/LINUX.md)) |
+### Operating system
 
-The installer sets up the app plus **.NET 8** and **.NET 10** Desktop Runtimes (internet required during install).
+| Platform | Supported |
+|----------|-----------|
+| **Windows** | 64-bit **Windows 10** or **Windows 11** |
+| **Linux** | 64-bit desktop distro with a desktop environment (see [docs/LINUX.md](docs/LINUX.md)) |
 
-A portable ZIP (`PES3-Disc-portable-win-x64.zip`) is also attached if you already have the runtimes.
+### PC specs (practical minimum)
 
-### Publish a new release (maintainers)
+These are guidelines for a smooth experience, not official RPCS3 requirements.
 
-Push a version tag; GitHub Actions builds and uploads the release automatically:
+| Component | Recommendation |
+|-----------|----------------|
+| **CPU** | 6+ cores, recent Intel or AMD (RPCS3 is CPU-heavy) |
+| **RAM** | **16 GB** minimum; **32 GB** if you run other apps while emulating |
+| **Storage** | **SSD strongly recommended** for cache/decrypt (see below) |
+| **Free disk space** | **20–50 GB+** per large retail game (decrypt copy); smaller for DIY burns |
+| **GPU** | Whatever RPCS3 needs for your games (Vulkan-capable) |
 
-```bash
-git tag v1.0.0
-git push origin v1.0.0
+The Windows installer can download **.NET 8** and **.NET 10** runtimes during setup (internet required). The portable ZIP assumes you already have them.
+
+### Software you must install yourself
+
+1. **[RPCS3](https://rpcs3.net/)** — the PS3 emulator (PES3-Disc only launches games through it).
+2. **Firmware & keys** — follow RPCS3’s official setup (PES3-Disc does not include these).
+3. **Legal acceptance** — the app asks you to confirm you own the disc and will not redistribute files before play or decrypt.
+
+### Disc drive
+
+| Disc type | Drive needed |
+|-----------|----------------|
+| **DIY / burned / mounted folder** | Any drive or mount that shows `PS3_GAME` files in Explorer (Windows) or your file manager (Linux) |
+| **Official retail PS3 Blu-ray** | A **[Blu-ray drive compatible with PS3 disc dumping](https://rpcs3.net/quickstart#dumping_drives)** — many common PC drives **cannot** read PS3 discs |
+
+Retail decrypt also needs **internet** (for IRD keys) and can take **30–90+ minutes** the first time per disc, depending on drive speed and game size.
+
+---
+
+## What discs work?
+
+| Disc | What happens |
+|------|----------------|
+| **DIY or burned disc** with a normal `PS3_GAME` folder and **decrypted** `EBOOT.BIN` | Works — app copies to cache, then plays in RPCS3 |
+| **Mounted folder** (dump, ISO extract, etc.) with the same layout | Same as DIY |
+| **Official retail PS3 disc** | Works **after decrypt** — needs a compatible drive; second insert can use **Play from cache** |
+| **Retail disc + wrong drive** | PC cannot read the disc — upgrade the drive or dump the game elsewhere first |
+
+Your disc should look like this on the drive letter:
+
+```
+X:\
+├── PS3_DISC.SFB          (often present)
+└── PS3_GAME\
+    ├── PARAM.SFO
+    └── USRDIR\
+        └── EBOOT.BIN     (decrypted for DIY; encrypted on retail until decrypt)
 ```
 
-Or run the **Release** workflow manually under Actions:
+More detail: [docs/DISC-COMPATIBILITY.md](docs/DISC-COMPATIBILITY.md)
 
-- **Artifacts only** — leave *Create a GitHub Release* unchecked (default).
-- **Publish a release** — check *Create a GitHub Release* and set *Release tag* to a semver tag like `v1.0.1` (must start with `v` and a version number). The workflow creates the tag on that commit and uploads assets.
+---
 
-### Build installer locally
+## Quick start (Windows)
 
-```powershell
-powershell -ExecutionPolicy Bypass -File Build-Installer.ps1
-```
+1. **Install RPCS3** and complete its first-time setup (firmware, etc.).
+2. **Download and run** [PES3-Disc-Setup.exe](https://github.com/SlushFlow/PES3-Disc/releases) from Releases.
+3. On **first launch**, the setup wizard asks for:
+   - Path to `rpcs3.exe`
+   - Cache and backup options (defaults are fine for most users)
+4. **Insert your disc** (or mount your PS3 folder).
+5. On the home screen, choose:
+   - **Play** — DIY disc or already-decrypted cache
+   - **Decrypt & play** — official retail disc (first time)
+   - **Play from cache** — retail disc you decrypted before
 
-Details: [installer/README.md](installer/README.md)
+### Run at Windows login (optional)
 
-### Run without installer
+In the app **Settings**, enable run at startup — or use the installer’s startup option if offered.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File Build-App.ps1
-```
+---
 
-Run **`dist\PES3-Disc.exe`**. First launch opens a setup wizard (RPCS3 path, options). The main window scans drives and offers **Play** or **Decrypt & play**.
+## Quick start (Linux)
 
-Details: [docs/GUI-APP.md](docs/GUI-APP.md)
+1. Install **RPCS3 for Linux**.
+2. Download **`PES3-Disc-linux-x64.tar.gz`**, extract, and run `./install.sh` (see [docs/LINUX.md](docs/LINUX.md)).
+3. Add `~/.local/bin` to your `PATH`, launch **PES3-Disc**.
+4. Complete setup, insert or mount the disc under `/media/...` or `/run/media/...`.
+5. For **retail decrypt**, you may need membership in the **`disk`** group and **`pes3-disc-dump-linux`** (included in the release tarball).
 
-### Bug reports
+---
 
-Use **Report bug** in the app to send feedback. The API and Render deploy config (`render.yaml`, `Dockerfile`) are in this repo — see [docs/BUG-REPORTS-API.md](docs/BUG-REPORTS-API.md).
+## How it works (simple)
 
-### Legacy background watcher
+1. PES3-Disc detects a PS3 layout on your disc or mount.
+2. For **DIY** discs, it copies game files to a **cache folder** on your SSD (faster than reading the optical drive during play).
+3. For **retail** discs, it **decrypts** into the same cache layout (one-time per disc unless you keep persistent cache).
+4. It starts **RPCS3** with the cached `EBOOT.BIN`.
 
-Without the exe, use PowerShell: copy `config.example.json` → `config.json`, then **`Start-PES3-Disc.bat`** (hidden watcher + tray-style prompts).
+By default, the cache is **removed when you close RPCS3** (saves in RPCS3’s `dev_hdd0` are kept). You can turn on **persistent cache** in Settings to skip re-copy or re-decrypt next time.
 
-## Requirements
+Cache and logs live under **`RPCS3\PES3\`** next to your RPCS3 install (or a path you choose in Settings).
 
-- **Windows 10/11** or **Linux x64** (CLI)
-- **RPCS3** installed (`rpcs3.exe` / `rpcs3`)
-- Disc readable in Windows with this layout (typical for burned / file-based discs):
+---
 
-  ```
-  X:\PS3_GAME\USRDIR\EBOOT.BIN
-  X:\PS3_GAME\PARAM.SFO
-  ```
+## RPCS3 settings worth checking
 
-  Optional root file: `PS3_DISC.SFB`
+In RPCS3:
 
-## Official vs DIY discs
+- Enable **Automatically start games after boot** so the game runs when PES3-Disc opens the emulator.
+- If the RPCS3 window closes but the game keeps running, turn off **Exit RPCS3 when process finishes** under **Settings → Emulator**.
 
-| Disc type | PES3-Disc |
-|-----------|-----------|
-| **DIY / burned / mounted** disc with decrypted `EBOOT.BIN` | **Works** — copies to **PES3 cache** (SSD) then launches RPCS3 |
-| **Retail / official PS3 Blu-ray** | **Decrypt then play** — same **PES3 cache**; reuse cached copy on next insert |
+---
 
-For official discs, run **one-time** setup:
+## Settings in PES3-Disc (overview)
 
-```powershell
-powershell -ExecutionPolicy Bypass -File Setup.ps1 -RetailDecrypt
-```
+| Setting | What it does |
+|---------|----------------|
+| **RPCS3 path** | Location of `rpcs3.exe` / `rpcs3` |
+| **Delete cache when RPCS3 exits** | On = temp cache each session (default). Off = keep decrypt/copy for faster replay |
+| **Cache path** | Where decrypted/copied games are stored (default: `RPCS3\PES3\cache`) |
+| **Backups** | Optional snapshots of game files (and saves) before cache is cleared |
+| **Retail decrypt tool** | Path to `pes3-disc-dump.exe` (Windows) or `pes3-disc-dump-linux` |
 
-Then insert the disc → **Decrypt & play** or **Play from cache** if already decrypted. DIY and retail both use **`RPCS3\PES3\cache`** so RPCS3 reads from SSD instead of the optical drive. Cache is **removed when you close RPCS3** by default (toggle in Settings); saves in `dev_hdd0` are kept. Requires a [compatible Blu-ray drive](https://rpcs3.net/quickstart#dumping_drives) and IRD keys for retail.
+Windows stores app settings in `%AppData%\PES3-Disc\config.json` unless `config.json` sits next to the executable.
 
-- DIY / layout details: [docs/DISC-COMPATIBILITY.md](docs/DISC-COMPATIBILITY.md)  
-- Retail decrypt: [docs/RETAIL-DECRYPT.md](docs/RETAIL-DECRYPT.md)
-
-Run layout tests anytime:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File Test-Ps3DiscDetection.ps1
-```
-
-### Test disc fixtures (no real game data)
-
-Simulated DIY and retail layouts under `test-fixtures/`:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File test-fixtures\Build-TestFixtures.ps1
-powershell -ExecutionPolicy Bypass -File Test-PES3-Integration.ps1        # ~10+ min
-powershell -ExecutionPolicy Bypass -File Test-PES3-Integration.ps1 -Quick  # ~2 min smoke test
-```
-
-Scan fixtures without a burner drive:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File DiscRun.ps1 -Scan -NonInteractive `
-  -TestVolume ".\test-fixtures\diy-demo-disc", ".\test-fixtures\retail-encrypted-disc"
-```
-
-## Quick start
-
-1. [Download or clone](https://github.com/SlushFlow/PES3-Disc) this repo.
-2. Copy `config.example.json` to `config.json` and set `Rpcs3Path`, **or** run:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File Setup.ps1 -Config
-   ```
-3. Double-click **`Start-PES3-Disc.bat`** (runs in the background; log: `RPCS3\PES3\logs\disc-run.log`).
-4. Insert a PS3-layout disc → confirm the dialog → RPCS3 boots the game.
-
-### Run at Windows login
-
-```powershell
-powershell -ExecutionPolicy Bypass -File Setup.ps1 -Startup
-```
-
-Or run everything: `Setup.ps1 -All`
-
-This adds a **PES3-Disc** shortcut to your Startup folder. Remove it from **Settings → Apps → Startup** to disable.
-
-## PES3 folder layout
-
-With `Rpcs3Path` configured, runtime data lives under **`RPCS3\PES3\`**:
-
-| Path | Purpose |
-|------|---------|
-| `PES3\temp\` | Ephemeral decrypt (default; deleted when RPCS3 closes) |
-| `PES3\cache\` | Persistent decrypts if `DeleteCacheAfterPlay` is `false` |
-| `PES3\logs\` | `disc-run.log` |
-| `PES3\state\` | Watcher state (not game saves) |
-| `PES3\backups\` | Game (+ optional save) snapshots before delete/replace |
-
-`config.json` stays in the PES3-Disc install folder. **`dev_hdd0` is never touched** by cache cleanup (save folders may be **copied** into backups when enabled).
-
-### Backups
-
-Before ephemeral decrypt folders are removed, PES3-Disc can copy the game tree (and optionally `dev_hdd0\savedata\<TITLE_ID>`) under `PES3\backups\`. List or restore with `Backup.ps1`; details in [docs/BACKUPS.md](docs/BACKUPS.md).
-
-## Configuration (`config.json`)
-
-| Field | Description |
-|--------|-------------|
-| `Rpcs3Path` | Full path to `rpcs3.exe` |
-| `ScanDelaySeconds` | Wait after insert before scanning (default `3`) |
-| `UseNoGui` | If `true`, passes `--no-gui` to RPCS3 |
-| `DeleteCacheAfterPlay` | If `true` (default), delete decrypt folder when RPCS3 exits |
-| `DumpCachePath` | Leave `""` to use `RPCS3\PES3\cache` |
-| `EnableBackups` | Snapshot game files before cache delete/replace (default `true`) |
-| `BackupSaves` | Include RPCS3 save data for that title in each backup (default `true`) |
-| `BackupOnLaunch` | Backup on every launch, not only ephemeral decrypt (default `false`) |
-| `MaxBackupsPerTitle` | Keep newest N snapshots per title (default `3`) |
-| `BackupPath` | Custom backup root; `""` = `RPCS3\PES3\backups` |
-
-Example:
-
-```json
-{
-  "Rpcs3Path": "D:\\Emulators\\RPCS3\\rpcs3.exe",
-  "ScanDelaySeconds": 3,
-  "UseNoGui": false
-}
-```
-
-## Files (project root)
-
-| File | Purpose |
-|------|---------|
-| `Build-Installer.ps1` | Build **`installer\output\PES3-Disc-Setup.exe`** (app + .NET 8/10) |
-| `Build-App.ps1` | Build **`dist\PES3-Disc.exe`** (GUI only) |
-| `installer\` | Inno Setup script + PowerShell installer |
-| `src\PES3-Disc.App\` | WPF desktop app |
-| `src\PES3-Disc.Core\` | Shared C# library (detect, decrypt, launch) |
-| `Start-PES3-Disc.bat` | Launch GUI exe if built, else PowerShell watcher |
-| `DiscRun.ps1` | Legacy watcher + `-Scan` / `-RemoveOnly` |
-| `Ps3DiscRun.ps1` | Legacy PowerShell library |
-| `Setup.ps1` | Legacy `-Config`, `-Startup`, `-RetailDecrypt` |
-| `Backup.ps1` | `-List`, `-Restore`, `-BackupNow` |
-| `Test-PES3-Integration.ps1` | Full integration test |
-| `config.example.json` | Config template (scripts / portable exe) |
-| `docs/GUI-APP.md` | Desktop app guide |
-| `docs/` | Compatibility and retail decrypt guides |
-
-## RPCS3 settings
-
-- Enable **Automatically start games after boot** (default) so the game runs when RPCS3 opens with `EBOOT.BIN`.
-- If the emulator window closes but the game keeps running, disable **Exit RPCS3 when process finishes** under **Settings → Emulator**.
+---
 
 ## Troubleshooting
 
-- **No prompt:** Ensure `Start-PES3-Disc.bat` is running; open `RPCS3\PES3\logs\disc-run.log`. Increase `ScanDelaySeconds` if the drive is slow to mount (insert events also wait this long before scanning).
-- **Prompt again after eject/re-insert:** Normal; prompt state resets when the volume is ejected.
-- **Temp decrypt deleted too early:** RPCS3 must fully exit; cleanup waits for the launched process plus a short grace period. Close stray `rpcs3.exe` instances if needed.
-- **Duplicate prompts on insert:** Overlapping scans are suppressed for ~12 seconds; if issues persist, restart the watcher.
-- **RPCS3 opens but game does not start:** Verify `EBOOT.BIN` exists on the disc; test manually:  
-  `"C:\path\to\rpcs3.exe" "X:\PS3_GAME\USRDIR\EBOOT.BIN"`
+| Problem | Try this |
+|---------|----------|
+| **Disc not detected** | Open the drive in File Explorer — do you see `PS3_GAME\USRDIR\EBOOT.BIN`? If not, the burn or drive may be wrong. |
+| **Retail disc not detected** | Check [compatible drives](https://rpcs3.net/quickstart#dumping_drives). Many drives cannot read PS3 BDs at all. |
+| **RPCS3 opens but no game** | Confirm `EBOOT.BIN` exists and is decrypted (DIY). Test manually in RPCS3: **File → Boot Game** and pick `EBOOT.BIN`. |
+| **Decrypt takes forever** | Normal for large games on a slow drive. Use an SSD for cache path; keep persistent cache to avoid repeating. |
+| **Cache deleted too early** | Fully exit RPCS3 (check Task Manager for stray `rpcs3.exe`). |
+| **Linux: permission denied on drive** | Add your user to the `disk` group and re-login; see [docs/LINUX.md](docs/LINUX.md). |
 
-## Legal and privacy
+Logs: **`RPCS3\PES3\logs\disc-run.log`** (Windows scripts) or the path shown in app Settings.
 
-PES3-Disc is licensed under the [MIT License](LICENSE). See also:
+---
 
-- [LEGAL.md](LEGAL.md) — lawful use, prohibited uses, persistent cache, disclaimer
-- [docs/USER-LEGAL-GUIDE.md](docs/USER-LEGAL-GUIDE.md) — short checklist for end users
-- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — ps3-disc-dumper, .NET, Avalonia, etc.
-- [PRIVACY.md](PRIVACY.md) — optional bug report API; local cache stays on your PC
-- [SECURITY.md](SECURITY.md) — reporting vulnerabilities
+## Bug reports
 
-The app asks you to confirm you own the disc, will not redistribute files, and comply with local law before decrypt or copy. You must own discs you decrypt. PES3-Disc is not affiliated with Sony, PlayStation, or RPCS3.
+Use **Report bug** in the app to send feedback (title, description, and basic system info — not disc contents). See [PRIVACY.md](PRIVACY.md).
 
-## Performance tips
+---
 
-- Use a **fast SSD** for `DumpCachePath` / `RPCS3\PES3\cache` (Settings).
-- Turn off **Delete cache after play** to avoid re-decrypting the same disc.
-- Use a **compatible Blu-ray drive** ([RPCS3 quickstart](https://rpcs3.net/quickstart#dumping_drives)); dump speed is limited by the drive and disc, not the GUI.
-- DIY discs are staged with multi-threaded **robocopy** (Windows) or **rsync** (Linux) when available.
+## Legal
+
+- Use only discs **you own**.
+- Do **not** share decrypted files or use PES3-Disc to pirate games.
+- You must accept the in-app legal terms before play or decrypt.
+
+Read more: [LEGAL.md](LEGAL.md) · [User legal guide](docs/USER-LEGAL-GUIDE.md) · [Privacy](PRIVACY.md)
+
+---
+
+## More documentation
+
+| Topic | Link |
+|-------|------|
+| Desktop app details | [docs/GUI-APP.md](docs/GUI-APP.md) |
+| DIY vs retail discs | [docs/DISC-COMPATIBILITY.md](docs/DISC-COMPATIBILITY.md) |
+| Retail decrypt | [docs/RETAIL-DECRYPT.md](docs/RETAIL-DECRYPT.md) |
+| Linux install | [docs/LINUX.md](docs/LINUX.md) |
+| Backups | [docs/BACKUPS.md](docs/BACKUPS.md) |
+
+---
+
+## License
+
+PES3-Disc is released under the [MIT License](LICENSE). Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
