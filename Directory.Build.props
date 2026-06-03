@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Company>PES3-Disc contributors</Company>
+    <Company>Slush Flow</Company>
     <Product>PES3-Disc</Product>
     <Copyright>Copyright (c) 2026 SlushFlow</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

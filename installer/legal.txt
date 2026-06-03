@@ -1,4 +1,5 @@
-PES3-Disc — helper for launching PS3-format discs in RPCS3 (your own install).
+PES3-Disc — published by Slush Flow.
+Helper for launching PS3-format discs in RPCS3 (your own install).
 
 YOU MUST:
 - Own any physical disc you decrypt or copy.

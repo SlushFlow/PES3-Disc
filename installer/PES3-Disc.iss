@@ -5,7 +5,7 @@
 #ifndef MyAppVersion
 #define MyAppVersion "1.0.0"
 #endif
-#define MyAppPublisher "PES3-Disc"
+#define MyAppPublisher "Slush Flow"
 #define MyAppURL "https://github.com/SlushFlow/PES3-Disc"
 #define MyAppExeName "PES3-Disc.exe"
 
@@ -17,6 +17,11 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
+VersionInfoCompanyName={#MyAppPublisher}
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion={#MyAppVersion}
+VersionInfoVersion={#MyAppVersion}
+VersionInfoCopyright=Copyright (C) 2026 {#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
