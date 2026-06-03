@@ -5,6 +5,8 @@ namespace PES3Disc.Core.Tests.Fixtures;
 /// <summary>Cross-platform builder for DIY and retail PS3 disc test layouts.</summary>
 public static class Ps3DiscFixtureBuilder
 {
+    private static readonly object StandardFixtureLock = new();
+
     public const string DiyTitleId = "BLUS99991";
     public const string RetailTitleId = "BLUS99992";
     public const string DiyTitle = "PES3 DIY Test Disc";
@@ -15,8 +17,11 @@ public static class Ps3DiscFixtureBuilder
 
     public static void WriteStandardFixtures(string repoRoot)
     {
-        WriteDiyDisc(Path.Combine(repoRoot, "test-fixtures", DiyFixtureName));
-        WriteRetailDisc(Path.Combine(repoRoot, "test-fixtures", RetailFixtureName));
+        lock (StandardFixtureLock)
+        {
+            WriteDiyDisc(Path.Combine(repoRoot, "test-fixtures", DiyFixtureName));
+            WriteRetailDisc(Path.Combine(repoRoot, "test-fixtures", RetailFixtureName));
+        }
     }
 
     public static string WriteDiyDisc(string root)

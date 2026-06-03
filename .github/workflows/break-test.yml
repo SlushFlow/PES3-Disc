@@ -49,15 +49,44 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Linux dotnet tests
+      - name: Normalize scripts
+        run: sed -i 's/\r$//' scripts/ci-test-linux.sh
+
+      - name: Build Core + Core.Tests
         run: |
-          sed -i 's/\r$//' scripts/ci-test-linux.sh
-          bash scripts/ci-test-linux.sh
+          dotnet --list-sdks
+          dotnet build src/PES3-Disc.Core/PES3-Disc.Core.csproj -c Release -v q -p:LangVersion=12
+          dotnet build tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release -v q -p:LangVersion=12
+
+      - name: Core dotnet tests
+        run: dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n
+
+      - name: Build + run API tests (exclude rate limit)
+        run: |
+          dotnet build tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release -v q -p:LangVersion=12
+          dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName!~BreakApiRateLimitTests"
+
+      - name: API rate-limit tests
+        run: dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~BreakApiRateLimitTests"
+
+      - name: CLI build + fixture scan
+        run: |
+          dotnet build src/PES3-Disc.Cli/PES3-Disc.Cli.csproj -c Release -v q -p:LangVersion=12
+          ROOT="$GITHUB_WORKSPACE"
+          CLI_DLL="$ROOT/src/PES3-Disc.Cli/bin/Release/net8.0/pes3-disc-cli.dll"
+          DIY="$ROOT/test-fixtures/diy-demo-disc"
+          RETAIL="$ROOT/test-fixtures/retail-encrypted-disc"
+          test -f "$DIY/PS3_GAME/USRDIR/EBOOT.BIN"
+          OUT="$(dotnet exec "$CLI_DLL" scan --test-volume "$DIY" --test-volume "$RETAIL")"
+          echo "$OUT"
+          echo "$OUT" | grep -qi "PES3 DIY Test Disc"
+          echo "$OUT" | grep -qiE 'EncryptedRetail|Encrypted retail|decryption'
+          dotnet exec "$CLI_DLL" help | grep -qi "pes3-disc"
 
       - name: Linux break-only dotnet tests
         run: |
-          dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --filter "FullyQualifiedName~BreakTests" -v n
-          dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --filter "FullyQualifiedName~BreakApi" -v n
+          dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~BreakTests" -v n
+          dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~BreakApi" -v n
 
       - name: Docker API build (Render parity)
         run: docker build -t pes3-api-test .

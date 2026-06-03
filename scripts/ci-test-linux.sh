@@ -12,10 +12,11 @@ dotnet build tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release -
 echo "==> Run dotnet tests"
 dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --logger "console;verbosity=normal"
 dotnet build tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release -v q -p:LangVersion=12
-dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --no-build -v n --logger "console;verbosity=normal"
+dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --no-build -v n --logger "console;verbosity=normal" --filter "FullyQualifiedName!~BreakApiRateLimitTests"
+dotnet test tests/PES3.BugReports.Api.Tests/PES3.BugReports.Api.Tests.csproj -c Release --no-build -v n --logger "console;verbosity=normal" --filter "FullyQualifiedName~BreakApiRateLimitTests"
 
 echo "==> Build Linux CLI"
-dotnet build src/PES3-Disc.Cli/PES3-Disc.Cli.csproj -c Release -v q
+dotnet build src/PES3-Disc.Cli/PES3-Disc.Cli.csproj -c Release -v q -p:LangVersion=12
 
 CLI_DLL="$ROOT/src/PES3-Disc.Cli/bin/Release/net8.0/pes3-disc-cli.dll"
 DIY="$ROOT/test-fixtures/diy-demo-disc"
