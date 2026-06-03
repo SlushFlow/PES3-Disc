@@ -38,6 +38,4 @@ jobs:
             10.0.x
 
       - name: Run Linux tests
-        run: |
-          chmod +x scripts/ci-test-linux.sh
-          ./scripts/ci-test-linux.sh
+        run: bash scripts/ci-test-linux.sh
