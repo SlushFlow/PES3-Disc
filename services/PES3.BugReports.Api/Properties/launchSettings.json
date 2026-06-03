@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "PES3.BugReports.Api": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DEV_API_KEY": "dev-local-key",
+        "DATABASE_PATH": "reports.db"
+      }
+    }
+  }
+}

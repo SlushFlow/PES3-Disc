@@ -53,6 +53,10 @@ Run **`dist\PES3-Disc.exe`**. First launch opens a setup wizard (RPCS3 path, opt
 
 Details: [docs/GUI-APP.md](docs/GUI-APP.md)
 
+### Bug reports
+
+Use **Report bug** in the app to send feedback. The API and Render deploy config (`render.yaml`, `Dockerfile`) are in this repo — see [docs/BUG-REPORTS-API.md](docs/BUG-REPORTS-API.md).
+
 ### Legacy background watcher
 
 Without the exe, use PowerShell: copy `config.example.json` → `config.json`, then **`Start-PES3-Disc.bat`** (hidden watcher + tray-style prompts).

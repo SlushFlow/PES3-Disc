@@ -1,0 +1,19 @@
+services:
+  pes3-bugreports-api:
+    type: web
+    name: pes3-bugreports
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:10000
+      - key: DATABASE_PATH
+        value: /data/reports.db
+      - key: DEV_API_KEY
+        sync: false
+    disk:
+      name: pes3-bugreports-data
+      mountPath: /data
+      sizeGB: 1

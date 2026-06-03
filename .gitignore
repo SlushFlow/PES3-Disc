@@ -17,3 +17,6 @@ tools/*.pdb
 tools/PES3-Disc.DumpCli/bin/
 tools/PES3-Disc.DumpCli/obj/
 external/ps3-disc-dumper/
+services/**/bin/
+services/**/obj/
+services/**/reports.db

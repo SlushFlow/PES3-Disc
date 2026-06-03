@@ -1,0 +1,41 @@
+# Bug report API (Render)
+
+PES3-Disc submits bug reports to a small ASP.NET API. The API source and Render deploy config live in **this repo** so GitHub/Render can build them.
+
+| File | Purpose |
+|------|---------|
+| [`render.yaml`](../render.yaml) | Render Blueprint — web service + persistent disk |
+| [`Dockerfile`](../Dockerfile) | Builds `services/PES3.BugReports.Api` |
+| [`services/PES3.BugReports.Api/`](PES3.BugReports.Api/) | REST API (SQLite, clustering, rate limit) |
+
+The **PES3 Dev Client** (local WPF app for reading grouped reports) is maintained separately in the `PES3-Dev` folder on your machine; only the API is deployed from this GitHub repo.
+
+## Deploy to Render
+
+1. [Render](https://render.com) → **New → Blueprint**
+2. Connect **`SlushFlow/PES3-Disc`** (this repo)
+3. Render reads `render.yaml` from the repo root
+4. Set **`DEV_API_KEY`** in the service Environment tab (long random secret)
+5. After deploy, verify: `curl https://YOUR-SERVICE.onrender.com/health`
+
+Default URL baked into PES3-Disc: `https://pes3-bugreports.onrender.com` — update [`BugReportEndpoints.cs`](../src/PES3-Disc.BugReports/BugReportEndpoints.cs) if your Render URL differs.
+
+## Endpoints
+
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/health` | none |
+| POST | `/api/reports` | none (rate-limited) |
+| GET | `/api/reports` | `X-Dev-Key` |
+| GET | `/api/summaries` | `X-Dev-Key` |
+
+## Local API dev
+
+```powershell
+cd services/PES3.BugReports.Api
+$env:DEV_API_KEY = "dev-local-key"
+$env:DATABASE_PATH = "reports.db"
+dotnet run
+```
+
+See also: shared client library [`PES3-Disc.BugReports`](../src/PES3-Disc.BugReports/).
