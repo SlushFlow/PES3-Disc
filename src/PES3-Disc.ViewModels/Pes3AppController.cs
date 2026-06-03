@@ -193,14 +193,14 @@ public sealed class Pes3AppController
         return session.EbootPath;
     }
 
-    public async Task SubmitBugReportAsync(string title, string body, string platform, CancellationToken ct = default)
+    public async Task<string> SubmitBugReportAsync(string title, string body, string platform, CancellationToken ct = default)
     {
         var apiUrl = string.IsNullOrWhiteSpace(_svc.Config.BugReportApiUrl)
             ? BugReportEndpoints.DefaultApiBaseUrl
             : _svc.Config.BugReportApiUrl.Trim();
         var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "1.0.0";
         using var client = new BugReportClient(apiUrl);
-        await client.SubmitAsync(new BugReportSubmission
+        var result = await client.SubmitAsync(new BugReportSubmission
         {
             Title = title,
             Body = body,
@@ -208,5 +208,12 @@ public sealed class Pes3AppController
             AppVersion = version,
             OsDescription = Environment.OSVersion.ToString(),
         }, ct);
+        BugReportPendingTracker.TrackSubmission(result.Id, title);
+        return result.Id;
     }
+
+    public string BugReportApiUrl =>
+        string.IsNullOrWhiteSpace(_svc.Config.BugReportApiUrl)
+            ? BugReportEndpoints.DefaultApiBaseUrl
+            : _svc.Config.BugReportApiUrl.Trim();
 }

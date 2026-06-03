@@ -68,6 +68,44 @@ public sealed class BugReportClient : IDisposable
         return list ?? [];
     }
 
+    public async Task ResolveReportAsync(
+        string devApiKey,
+        string reportId,
+        BugReportResolutionStatus status,
+        string? message = null,
+        CancellationToken ct = default)
+    {
+        if (status == BugReportResolutionStatus.Open)
+            throw new ArgumentException("Cannot resolve to open.");
+
+        var payload = new BugReportResolveRequest
+        {
+            Status = status.ToApiValue(),
+            Message = string.IsNullOrWhiteSpace(message) ? null : BugReportLimits.ValidateResolutionMessage(message),
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/reports/{reportId}/resolve")
+        {
+            Content = JsonContent.Create(payload, options: JsonOptions),
+        };
+        request.Headers.Add("X-Dev-Key", devApiKey);
+        using var response = await _http.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var detail = await response.Content.ReadAsStringAsync(ct);
+            throw new InvalidOperationException($"Resolve failed ({(int)response.StatusCode}): {detail}");
+        }
+    }
+
+    public async Task<BugReportResolutionDto?> FetchResolutionAsync(string reportId, CancellationToken ct = default)
+    {
+        using var response = await _http.GetAsync($"{_baseUrl}/api/reports/{reportId}/resolution", ct);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<BugReportResolutionDto>(JsonOptions, ct);
+    }
+
     private static string TruncateOs(string os)
     {
         os = (os ?? "").Trim();

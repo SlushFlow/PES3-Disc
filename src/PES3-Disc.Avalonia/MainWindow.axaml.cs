@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using PES3Disc.BugReports;
 using PES3Disc.Core;
 using PES3Disc.ViewModels;
 
@@ -13,7 +14,10 @@ public partial class MainWindow : Window
 {
     private readonly AvaloniaUiHost _ui = new();
     private readonly DispatcherTimer _scanTimer;
+    private readonly DispatcherTimer _bugReportTimer;
+    private readonly BugReportResolutionPoller _bugReportPoller = new();
     private bool _scanInProgress;
+    private bool _bugReportPollInProgress;
 
     public MainWindow()
     {
@@ -25,7 +29,37 @@ public partial class MainWindow : Window
         };
         _scanTimer.Tick += async (_, _) => await RunScanAsync();
         _scanTimer.Start();
-        Opened += async (_, _) => await RunScanAsync();
+        _bugReportTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(45) };
+        _bugReportTimer.Tick += async (_, _) => await PollBugReportResolutionsAsync();
+        _bugReportTimer.Start();
+        Opened += async (_, _) =>
+        {
+            await RunScanAsync();
+            await PollBugReportResolutionsAsync();
+        };
+    }
+
+    private async Task PollBugReportResolutionsAsync()
+    {
+        if (_bugReportPollInProgress)
+            return;
+        _bugReportPollInProgress = true;
+        try
+        {
+            var notifications = await _bugReportPoller.PollAsync(App.Controller.BugReportApiUrl);
+            foreach (var note in notifications)
+            {
+                _ui.ShowInfo(note.FormatForUser());
+                BugReportPendingTracker.MarkNotified(note.ReportId);
+            }
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _bugReportPollInProgress = false;
+        }
     }
 
     private void RefreshHeader()

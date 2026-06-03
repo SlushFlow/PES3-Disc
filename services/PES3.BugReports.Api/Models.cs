@@ -33,7 +33,19 @@ public sealed record ReportDto(
     string Platform,
     string AppVersion,
     string OsDescription,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    string Status,
+    string? ResolutionMessage,
+    DateTime? ResolvedAtUtc);
+
+public sealed record ResolveReportRequest(string Status, string? Message);
+
+public sealed record ReportResolutionDto(
+    string Id,
+    string Title,
+    string Status,
+    string? Message,
+    DateTime? ResolvedAtUtc);
 
 public sealed record ClusterSummaryDto(
     string ClusterId,

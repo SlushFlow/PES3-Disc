@@ -25,6 +25,32 @@ public sealed class BugReportDto
     public string AppVersion { get; set; } = "";
     public string OsDescription { get; set; } = "";
     public DateTime CreatedAtUtc { get; set; }
+    public string Status { get; set; } = "open";
+    public string? ResolutionMessage { get; set; }
+    public DateTime? ResolvedAtUtc { get; set; }
+
+    public BugReportResolutionStatus ResolutionStatus =>
+        BugReportResolutionStatusExtensions.TryParseApiValue(Status, out var s) ? s : BugReportResolutionStatus.Open;
+
+    public bool IsOpen => ResolutionStatus == BugReportResolutionStatus.Open;
+}
+
+public sealed class BugReportResolveRequest
+{
+    public required string Status { get; init; }
+    public string? Message { get; init; }
+}
+
+public sealed class BugReportResolutionDto
+{
+    public string Id { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Status { get; set; } = "open";
+    public string? Message { get; set; }
+    public DateTime? ResolvedAtUtc { get; set; }
+
+    public BugReportResolutionStatus ResolutionStatus =>
+        BugReportResolutionStatusExtensions.TryParseApiValue(Status, out var s) ? s : BugReportResolutionStatus.Open;
 }
 
 public sealed class BugReportClusterSummary

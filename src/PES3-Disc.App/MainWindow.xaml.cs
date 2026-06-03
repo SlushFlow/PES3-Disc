@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using PES3Disc.BugReports;
 using PES3Disc.Core;
 
 namespace PES3Disc.App;
@@ -9,8 +10,11 @@ namespace PES3Disc.App;
 public partial class MainWindow : Window
 {
     private readonly DispatcherTimer _scanTimer;
+    private readonly DispatcherTimer _bugReportTimer;
+    private readonly BugReportResolutionPoller _bugReportPoller = new();
     private readonly HashSet<string> _prompted;
     private bool _scanInProgress;
+    private bool _bugReportPollInProgress;
 
     public MainWindow()
     {
@@ -23,7 +27,41 @@ public partial class MainWindow : Window
         };
         _scanTimer.Tick += async (_, _) => await RunScanAsync();
         _scanTimer.Start();
-        Loaded += async (_, _) => await RunScanAsync();
+        _bugReportTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(45) };
+        _bugReportTimer.Tick += async (_, _) => await PollBugReportResolutionsAsync();
+        _bugReportTimer.Start();
+        Loaded += async (_, _) =>
+        {
+            await RunScanAsync();
+            await PollBugReportResolutionsAsync();
+        };
+    }
+
+    private async Task PollBugReportResolutionsAsync()
+    {
+        if (_bugReportPollInProgress)
+            return;
+        _bugReportPollInProgress = true;
+        try
+        {
+            var apiUrl = string.IsNullOrWhiteSpace(App.Services.Config.BugReportApiUrl)
+                ? BugReportEndpoints.DefaultApiBaseUrl
+                : App.Services.Config.BugReportApiUrl.Trim();
+            var notifications = await _bugReportPoller.PollAsync(apiUrl);
+            foreach (var note in notifications)
+            {
+                MessageBox.Show(this, note.FormatForUser(), "Bug report update", MessageBoxButton.OK, MessageBoxImage.Information);
+                BugReportPendingTracker.MarkNotified(note.ReportId);
+            }
+        }
+        catch
+        {
+            // API unreachable — ignore until next poll
+        }
+        finally
+        {
+            _bugReportPollInProgress = false;
+        }
     }
 
     private void RefreshHeader()

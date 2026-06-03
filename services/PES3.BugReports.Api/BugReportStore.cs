@@ -41,6 +41,38 @@ public sealed class BugReportStore
             CREATE INDEX IF NOT EXISTS IX_Reports_CreatedAtUtc ON Reports(CreatedAtUtc);
             """;
         cmd.ExecuteNonQuery();
+        EnsureResolutionColumns(conn);
+    }
+
+    private static void EnsureResolutionColumns(SqliteConnection conn)
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var info = conn.CreateCommand())
+        {
+            info.CommandText = "PRAGMA table_info(Reports)";
+            using var reader = info.ExecuteReader();
+            while (reader.Read())
+                columns.Add(reader.GetString(1));
+        }
+
+        using var alter = conn.CreateCommand();
+        if (!columns.Contains("Status"))
+        {
+            alter.CommandText = "ALTER TABLE Reports ADD COLUMN Status TEXT NOT NULL DEFAULT 'open'";
+            alter.ExecuteNonQuery();
+        }
+
+        if (!columns.Contains("ResolutionMessage"))
+        {
+            alter.CommandText = "ALTER TABLE Reports ADD COLUMN ResolutionMessage TEXT";
+            alter.ExecuteNonQuery();
+        }
+
+        if (!columns.Contains("ResolvedAtUtc"))
+        {
+            alter.CommandText = "ALTER TABLE Reports ADD COLUMN ResolvedAtUtc TEXT";
+            alter.ExecuteNonQuery();
+        }
     }
 
     public async Task<(ReportRecord Report, string ClusterId)> InsertReportAsync(
@@ -155,8 +187,8 @@ public sealed class BugReportStore
         using var conn = Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = sinceUtc is null
-            ? "SELECT Id, ClusterId, Title, Body, Platform, AppVersion, OsDescription, CreatedAtUtc FROM Reports ORDER BY CreatedAtUtc DESC"
-            : "SELECT Id, ClusterId, Title, Body, Platform, AppVersion, OsDescription, CreatedAtUtc FROM Reports WHERE CreatedAtUtc >= $since ORDER BY CreatedAtUtc DESC";
+            ? "SELECT Id, ClusterId, Title, Body, Platform, AppVersion, OsDescription, CreatedAtUtc, Status, ResolutionMessage, ResolvedAtUtc FROM Reports ORDER BY CreatedAtUtc DESC"
+            : "SELECT Id, ClusterId, Title, Body, Platform, AppVersion, OsDescription, CreatedAtUtc, Status, ResolutionMessage, ResolvedAtUtc FROM Reports WHERE CreatedAtUtc >= $since ORDER BY CreatedAtUtc DESC";
         if (sinceUtc is not null)
             cmd.Parameters.AddWithValue("$since", sinceUtc.Value.ToUniversalTime().ToString("O"));
 
@@ -164,17 +196,48 @@ public sealed class BugReportStore
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            list.Add(new ReportDto(
-                reader.GetString(0),
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetString(3),
-                reader.GetString(4),
-                reader.GetString(5),
-                reader.GetString(6),
-                DateTime.Parse(reader.GetString(7), null, System.Globalization.DateTimeStyles.RoundtripKind)));
+            list.Add(ReadReportDto(reader));
         }
         return list;
+    }
+
+    public async Task<ReportResolutionDto?> GetResolutionAsync(string reportId, CancellationToken ct = default)
+    {
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT Id, Title, Status, ResolutionMessage, ResolvedAtUtc
+            FROM Reports WHERE Id = $id
+            """;
+        cmd.Parameters.AddWithValue("$id", reportId);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct))
+            return null;
+
+        return new ReportResolutionDto(
+            reader.GetString(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.IsDBNull(3) ? null : reader.GetString(3),
+            reader.IsDBNull(4) ? null : DateTime.Parse(reader.GetString(4), null, System.Globalization.DateTimeStyles.RoundtripKind));
+    }
+
+    public async Task<bool> ResolveReportAsync(string reportId, string status, string? message, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE Reports
+            SET Status = $status, ResolutionMessage = $message, ResolvedAtUtc = $resolved
+            WHERE Id = $id AND Status = 'open'
+            """;
+        cmd.Parameters.AddWithValue("$status", status);
+        cmd.Parameters.AddWithValue("$message", (object?)message ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$resolved", now.ToString("O"));
+        cmd.Parameters.AddWithValue("$id", reportId);
+        var rows = await cmd.ExecuteNonQueryAsync(ct);
+        return rows > 0;
     }
 
     public async Task<IReadOnlyList<ClusterSummaryDto>> ListSummariesAsync(CancellationToken ct = default)
@@ -205,25 +268,33 @@ public sealed class BugReportStore
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT Id, ClusterId, Title, Body, Platform, AppVersion, OsDescription, CreatedAtUtc
+            SELECT Id, ClusterId, Title, Body, Platform, AppVersion, OsDescription, CreatedAtUtc, Status, ResolutionMessage, ResolvedAtUtc
             FROM Reports WHERE ClusterId = $clusterId ORDER BY CreatedAtUtc DESC
             """;
         cmd.Parameters.AddWithValue("$clusterId", clusterId);
         var list = new List<ReportDto>();
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
-        {
-            list.Add(new ReportDto(
-                reader.GetString(0),
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetString(3),
-                reader.GetString(4),
-                reader.GetString(5),
-                reader.GetString(6),
-                DateTime.Parse(reader.GetString(7), null, System.Globalization.DateTimeStyles.RoundtripKind)));
-        }
+            list.Add(ReadReportDto(reader));
         return list;
+    }
+
+    private static ReportDto ReadReportDto(Microsoft.Data.Sqlite.SqliteDataReader reader)
+    {
+        return new ReportDto(
+            reader.GetString(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetString(5),
+            reader.GetString(6),
+            DateTime.Parse(reader.GetString(7), null, System.Globalization.DateTimeStyles.RoundtripKind),
+            reader.FieldCount > 8 && !reader.IsDBNull(8) ? reader.GetString(8) : "open",
+            reader.FieldCount > 9 && !reader.IsDBNull(9) ? reader.GetString(9) : null,
+            reader.FieldCount > 10 && !reader.IsDBNull(10)
+                ? DateTime.Parse(reader.GetString(10), null, System.Globalization.DateTimeStyles.RoundtripKind)
+                : null);
     }
 
     private SqliteConnection Open()

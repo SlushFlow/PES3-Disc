@@ -49,7 +49,7 @@ public partial class ReportBugWindow : Window
                 : App.Services.Config.BugReportApiUrl.Trim();
             var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0";
             using var client = new BugReportClient(apiUrl);
-            await client.SubmitAsync(new BugReportSubmission
+            var result = await client.SubmitAsync(new BugReportSubmission
             {
                 Title = TitleBox.Text.Trim(),
                 Body = BodyBox.Text.Trim(),
@@ -57,7 +57,8 @@ public partial class ReportBugWindow : Window
                 AppVersion = version,
                 OsDescription = Environment.OSVersion.ToString(),
             });
-            MessageBox.Show(this, "Thank you — your report was sent.", "Report a bug", MessageBoxButton.OK, MessageBoxImage.Information);
+            BugReportPendingTracker.TrackSubmission(result.Id, TitleBox.Text.Trim());
+            MessageBox.Show(this, "Thank you — your report was sent. You will be notified here when a developer responds.", "Report a bug", MessageBoxButton.OK, MessageBoxImage.Information);
             DialogResult = true;
             Close();
         }

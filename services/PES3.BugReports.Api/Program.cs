@@ -68,6 +68,33 @@ app.MapGet("/api/summaries", async (HttpContext ctx, CancellationToken ct) =>
     return Results.Ok(summaries);
 });
 
+app.MapGet("/api/reports/{id}/resolution", async (string id, CancellationToken ct) =>
+{
+    var resolution = await store.GetResolutionAsync(id, ct);
+    return resolution is null ? Results.NotFound() : Results.Ok(resolution);
+});
+
+app.MapPost("/api/reports/{id}/resolve", async (string id, ResolveReportRequest req, HttpContext ctx, CancellationToken ct) =>
+{
+    if (!IsAuthorized(ctx, devApiKey))
+        return Results.Unauthorized();
+
+    var status = (req.Status ?? "").Trim().ToLowerInvariant();
+    if (status is not ("declined" or "to_be_fixed" or "fixed"))
+        return Results.BadRequest(new { error = "Status must be declined, to_be_fixed, or fixed." });
+
+    string? message = null;
+    if (!string.IsNullOrWhiteSpace(req.Message))
+    {
+        message = req.Message.Trim();
+        if (message.Length > 500)
+            return Results.BadRequest(new { error = "Message must be at most 500 characters." });
+    }
+
+    var ok = await store.ResolveReportAsync(id, status, message, ct);
+    return ok ? Results.Ok(new { id, status, message }) : Results.NotFound(new { error = "Report not found or already closed." });
+});
+
 app.Run();
 
 static bool IsAuthorized(HttpContext ctx, string expectedKey)

@@ -47,6 +47,8 @@ Remove the free-tier `/tmp` `DATABASE_PATH` if you switch to a disk.
 | POST | `/api/reports` | none (rate-limited) |
 | GET | `/api/reports` | `X-Dev-Key` |
 | GET | `/api/summaries` | `X-Dev-Key` |
+| POST | `/api/reports/{id}/resolve` | `X-Dev-Key` — status: `declined`, `to_be_fixed`, `fixed` + optional message |
+| GET | `/api/reports/{id}/resolution` | none — PES3-Disc polls this for user notifications |
 
 ## Local API dev
 
