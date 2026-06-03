@@ -59,7 +59,12 @@ jobs:
           dotnet build tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release -v q -p:LangVersion=12
 
       - name: Core dotnet tests
-        run: dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n
+        run: |
+          set -euo pipefail
+          for class in BreakTests DevStatusLogicTests BugReportLimitsTests ReportClusteringTests LegalTermsTests DiscDetectorTests GameCacheServiceTests; do
+            echo "=== Core: $class ==="
+            dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~$class"
+          done
 
       - name: Build + run API tests (exclude rate limit)
         run: |

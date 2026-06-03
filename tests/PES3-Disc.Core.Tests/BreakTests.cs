@@ -90,9 +90,9 @@ public sealed class BreakTests : IDisposable
     public void DevStatusTracker_survives_unreachable_api()
     {
         using var tracker = new DevStatusTracker("http://127.0.0.1:1");
-        tracker.Start(TimeSpan.FromHours(1));
-        Thread.Sleep(100);
-        tracker.Dispose();
+        tracker.Start(TimeSpan.FromSeconds(30));
+        Thread.Sleep(50);
+        tracker.Stop();
     }
 
     [Fact]

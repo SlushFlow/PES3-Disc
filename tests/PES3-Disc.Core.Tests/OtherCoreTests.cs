@@ -6,17 +6,56 @@ namespace PES3Disc.Core.Tests;
 
 public class DevStatusLogicTests
 {
-    [Theory]
-    [InlineData("auto", 13, DevStatusKind.Green)]  // 8 AM ET = 13 UTC (EST)
-    [InlineData("auto", 3, DevStatusKind.Grey)]    // 10 PM ET previous = 3 UTC
-    [InlineData("yellow", 13, DevStatusKind.Yellow)]
-    [InlineData("green", 3, DevStatusKind.Green)]
-    [InlineData("grey", 13, DevStatusKind.Grey)]
-    public void ResolveEffective_respects_mode_and_schedule(string mode, int utcHour, DevStatusKind expected)
+    private static DateTime UtcFromEastern(int year, int month, int day, int hour, int minute = 30)
     {
-        var utc = new DateTime(2026, 1, 15, utcHour, 30, 0, DateTimeKind.Utc);
-        var kind = DevStatusLogic.ResolveEffective(mode, utc);
-        Assert.Equal(expected, kind);
+        var local = new DateTime(year, month, day, hour, minute, 0, DateTimeKind.Unspecified);
+        foreach (var id in new[] { "America/New_York", "Eastern Standard Time" })
+        {
+            try
+            {
+                var tz = TimeZoneInfo.FindSystemTimeZoneById(id);
+                return TimeZoneInfo.ConvertTimeToUtc(local, tz);
+            }
+            catch (TimeZoneNotFoundException) { }
+            catch (InvalidTimeZoneException) { }
+        }
+
+        return local.AddHours(5);
+    }
+
+    [Fact]
+    public void Auto_green_during_work_hours()
+    {
+        var utc = UtcFromEastern(2026, 1, 15, 8);
+        Assert.Equal(DevStatusKind.Green, DevStatusLogic.ResolveEffective("auto", utc));
+    }
+
+    [Fact]
+    public void Auto_grey_after_hours()
+    {
+        var utc = UtcFromEastern(2026, 1, 14, 22);
+        Assert.Equal(DevStatusKind.Grey, DevStatusLogic.ResolveEffective("auto", utc));
+    }
+
+    [Fact]
+    public void Manual_yellow_overrides_schedule()
+    {
+        var utc = UtcFromEastern(2026, 1, 15, 8);
+        Assert.Equal(DevStatusKind.Yellow, DevStatusLogic.ResolveEffective("yellow", utc));
+    }
+
+    [Fact]
+    public void Manual_green_overrides_schedule()
+    {
+        var utc = UtcFromEastern(2026, 1, 14, 22);
+        Assert.Equal(DevStatusKind.Green, DevStatusLogic.ResolveEffective("green", utc));
+    }
+
+    [Fact]
+    public void Manual_grey_overrides_schedule()
+    {
+        var utc = UtcFromEastern(2026, 1, 15, 8);
+        Assert.Equal(DevStatusKind.Grey, DevStatusLogic.ResolveEffective("grey", utc));
     }
 
     [Fact]
@@ -37,7 +76,7 @@ public class DevStatusLogicTests
     [Fact]
     public void Invalid_manual_mode_falls_back_to_schedule()
     {
-        var utc = new DateTime(2026, 6, 15, 15, 0, 0, DateTimeKind.Utc);
+        var utc = UtcFromEastern(2026, 6, 15, 11);
         var kind = DevStatusLogic.ResolveEffective("not-a-color", utc);
         Assert.Equal(DevStatusKind.Green, kind);
     }
