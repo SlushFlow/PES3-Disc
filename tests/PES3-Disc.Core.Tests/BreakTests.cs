@@ -62,10 +62,11 @@ public sealed class BreakTests : IDisposable
     }
 
     [Fact]
-    public void Empty_string_root_does_not_throw()
+    public void Empty_string_root_is_no_ps3_layout()
     {
         var ex = Record.Exception(() => DiscDetector.GetVolumeStatus(""));
         Assert.Null(ex);
+        Assert.Equal(DiscVolumeKind.NoPs3Layout, DiscDetector.GetVolumeStatus("").Kind);
     }
 
     [Fact]

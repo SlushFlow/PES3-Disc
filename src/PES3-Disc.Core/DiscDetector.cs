@@ -40,6 +40,16 @@ public static partial class DiscDetector
 
     public static DiscVolumeStatus GetVolumeStatus(string driveRoot)
     {
+        if (string.IsNullOrWhiteSpace(driveRoot))
+        {
+            return new DiscVolumeStatus
+            {
+                Kind = DiscVolumeKind.NoPs3Layout,
+                Message = "No PS3 game layout on this volume.",
+                Game = null,
+            };
+        }
+
         if (!driveRoot.EndsWith(Path.DirectorySeparatorChar) && !driveRoot.EndsWith('/'))
             driveRoot += Path.DirectorySeparatorChar;
 

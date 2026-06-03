@@ -37,7 +37,7 @@ public class BreakApiTests : IClassFixture<ApiWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Rate_limiter_blocks_spam_submissions()
+    public async Task Z_rate_limiter_blocks_spam_submissions()
     {
         var gotCreated = false;
         var got429 = false;
