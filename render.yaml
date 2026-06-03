@@ -1,6 +1,5 @@
 services:
-  pes3-bugreports-api:
-    type: web
+  - type: web
     name: pes3-bugreports
     runtime: docker
     plan: free
@@ -10,8 +9,6 @@ services:
     envVars:
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:10000
-      # Free tier has no persistent disk — reports survive until redeploy/restart/spin-down.
-      # For durable storage, upgrade to Starter and add a disk (see docs/BUG-REPORTS-API.md).
       - key: DATABASE_PATH
         value: /tmp/reports.db
       - key: DEV_API_KEY
