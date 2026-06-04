@@ -39,19 +39,69 @@ public sealed class PlaySessionRegistry
         Pes3Log.Write($"Registered play session for volume {session.VolumeId} ({entry.CleanupDirs.Count} cleanup dir(s)).");
     }
 
-    public void UnregisterVolume(string volumeId)
+    public void UnregisterVolume(string volumeId, bool deleteFiles = true)
     {
         if (_byVolume.TryRemove(volumeId, out var list))
         {
-            lock (list)
+            if (deleteFiles)
             {
-                foreach (var entry in list)
-                    SessionCleanup.DeleteTrees(entry.CleanupDirs);
+                lock (list)
+                {
+                    foreach (var entry in list)
+                        SessionCleanup.DeleteTrees(entry.CleanupDirs);
+                }
+                Pes3Log.Write($"Eject cleanup for volume {volumeId}.");
             }
-            Pes3Log.Write($"Eject cleanup for volume {volumeId}.");
         }
 
         RemoveFromPersist(volumeId);
+    }
+
+    /// <summary>Drop tracking after RPCS3 exit cleanup (files already deleted).</summary>
+    public void ClearVolume(string volumeId) => UnregisterVolume(volumeId, deleteFiles: false);
+
+    public void ReconcileOnStartup()
+    {
+        if (_persistPath is null || !File.Exists(_persistPath))
+            return;
+
+        try
+        {
+            var present = new HashSet<string>(
+                DiscDetector.GetOpticalDrives().Select(d => d.Id),
+                StringComparer.OrdinalIgnoreCase);
+
+            List<RegisteredSession> list;
+            lock (_persistLock)
+            {
+                var json = File.ReadAllText(_persistPath);
+                list = JsonSerializer.Deserialize<List<RegisteredSession>>(json, JsonOptions) ?? new();
+            }
+
+            foreach (var entry in list)
+            {
+                if (string.IsNullOrWhiteSpace(entry.VolumeId))
+                    continue;
+
+                if (!present.Contains(entry.VolumeId))
+                {
+                    SessionCleanup.DeleteTrees(entry.CleanupDirs);
+                    RemoveFromPersist(entry.VolumeId);
+                    continue;
+                }
+
+                var bucket = _byVolume.GetOrAdd(entry.VolumeId, _ => new List<RegisteredSession>());
+                lock (bucket)
+                {
+                    if (!bucket.Any(e => string.Equals(e.EbootPath, entry.EbootPath, StringComparison.OrdinalIgnoreCase)))
+                        bucket.Add(entry);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Pes3Log.Write($"Session registry startup reconcile failed: {ex.Message}");
+        }
     }
 
     public void CleanupEjectedVolumes()
@@ -68,11 +118,6 @@ public sealed class PlaySessionRegistry
 
         ReconcilePersistedSessions(present);
     }
-
-    public static PlaySessionRegistry LoadShared(Pes3Paths paths) =>
-        SharedInstance ??= new PlaySessionRegistry(paths);
-
-    private static PlaySessionRegistry? SharedInstance;
 
     private void Persist()
     {

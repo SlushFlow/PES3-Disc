@@ -272,11 +272,15 @@ public sealed class GameCacheService
         IReadOnlyList<string> cleanup;
         Pes3LibraryTier tier;
 
-        if (mode == Pes3StorageMode.EphemeralSession)
+        if (mode is Pes3StorageMode.EphemeralSession or Pes3StorageMode.SmartHybrid)
         {
-            installDir = _paths.NewSessionDir();
+            installDir = mode == Pes3StorageMode.SmartHybrid
+                ? _paths.NewDiscOverlayDir()
+                : _paths.NewSessionDir();
             cleanup = new[] { installDir };
-            tier = Pes3LibraryTier.EphemeralSession;
+            tier = mode == Pes3StorageMode.SmartHybrid
+                ? Pes3LibraryTier.DiscAssistedOverlay
+                : Pes3LibraryTier.EphemeralSession;
         }
         else
         {
@@ -290,11 +294,19 @@ public sealed class GameCacheService
             tier = Pes3LibraryTier.PersistentLibrary;
         }
 
-        progress?.Report(new StageProgress { Status = "Adding to PES3 library…", FilesCopied = 0, TotalFiles = 0 });
+        progress?.Report(new StageProgress
+        {
+            Status = mode == Pes3StorageMode.PersistentLibrary
+                ? "Adding to PES3 library…"
+                : "Preparing session (full copy)…",
+            FilesCopied = 0,
+            TotalFiles = 0,
+        });
+
         var ok = await DirectoryStaging.CopyTreeAsync(gameRoot, installDir, progress, cancellationToken)
             .ConfigureAwait(false);
         if (!ok)
-            throw new InvalidOperationException("Failed to copy the disc into the PES3 library.");
+            throw new InvalidOperationException("Failed to copy the disc into the PES3 session.");
 
         var eboot = Path.Combine(installDir, "PS3_GAME", "USRDIR", "EBOOT.BIN");
         if (!File.Exists(eboot))

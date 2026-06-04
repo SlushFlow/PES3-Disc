@@ -126,9 +126,7 @@ public sealed class DiscOverlayMaterializer
         var norm = relativePath.Replace('\\', '/');
         foreach (var pattern in _policy.AlwaysLocalPatterns)
         {
-            if (norm.Equals(pattern, StringComparison.OrdinalIgnoreCase)
-                || norm.EndsWith('/' + pattern, StringComparison.OrdinalIgnoreCase)
-                || norm.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+            if (MatchesAlwaysLocalPattern(norm, pattern))
                 return true;
         }
 
@@ -144,6 +142,14 @@ public sealed class DiscOverlayMaterializer
         }
 
         return false;
+    }
+
+    private static bool MatchesAlwaysLocalPattern(string normalizedRelativePath, string pattern)
+    {
+        var p = pattern.Replace('\\', '/').TrimStart('/');
+        var n = normalizedRelativePath.Replace('\\', '/').TrimStart('/');
+        return n.Equals(p, StringComparison.OrdinalIgnoreCase)
+            || n.EndsWith('/' + p, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ResolveEboot(string sessionRoot)

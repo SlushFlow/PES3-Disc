@@ -298,6 +298,24 @@ public class GameCacheServiceTests : IDisposable
     }
 
     [Fact]
+    public void PlaySessionRegistry_clear_volume_does_not_delete_twice()
+    {
+        var sessionDir = Path.Combine(_tempRoot, "clear-volume");
+        Directory.CreateDirectory(sessionDir);
+        var config = new Pes3Config { DumpCachePath = Path.Combine(_tempRoot, "cache") };
+        var registry = new PlaySessionRegistry(new Pes3Paths(config));
+        registry.Register(new PlaySession
+        {
+            EbootPath = Path.Combine(sessionDir, "eboot"),
+            CleanupDirs = new[] { sessionDir },
+            VolumeId = "VOL|clear",
+        });
+        SessionCleanup.DeleteTree(sessionDir);
+        registry.ClearVolume("VOL|clear");
+        Assert.False(Directory.Exists(sessionDir));
+    }
+
+    [Fact]
     public void FinalizeRetailDecrypt_smart_hybrid_stays_ephemeral()
     {
         var config = new Pes3Config

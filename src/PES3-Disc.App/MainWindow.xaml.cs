@@ -300,17 +300,12 @@ public partial class MainWindow : Window
 
     private async Task LaunchSessionAsync(PlaySession session, string? title)
     {
-        var proc = await App.Services.Launcher.LaunchGameAsync(
-            session.EbootPath,
-            session.CleanupDirs.ToList());
+        var proc = await App.Services.Launcher.LaunchSessionAsync(session);
         if (proc is null)
         {
             MessageBox.Show(this, "Could not start RPCS3. Check Settings.", "PES3-Disc", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-
-        if (session.CleanupDirs.Count > 0 && !string.IsNullOrWhiteSpace(session.VolumeId))
-            App.Services.SessionRegistry.Register(session);
 
         if (session.OverlayStats is { } stats)
             StatusBanner.Text = $"Disc-assisted session — {stats.Summary}";
