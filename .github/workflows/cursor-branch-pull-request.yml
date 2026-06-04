@@ -1,0 +1,42 @@
+# Opens PRs for cursor/* branches as github-actions[bot] so the repo owner can approve/merge
+# (Cloud Agent ManagePullRequest uses the user's GitHub identity instead.)
+name: Open Cursor branch PR
+
+on:
+  push:
+    branches:
+      - "cursor/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-pr:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create pull request if none exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          EXISTING="$(gh pr list --repo "${{ github.repository }}" --head "$BRANCH" --base main --state open --json number --jq 'length')"
+          if [[ "$EXISTING" != "0" ]]; then
+            echo "Open PR already exists for $BRANCH"
+            exit 0
+          fi
+          TITLE="Cursor: ${BRANCH#cursor/}"
+          BODY="Automated PR for branch \`${BRANCH}\` (opened by **github-actions[bot]**).
+
+          Commits on this branch are from **cursoragent** / Cloud Agent pushes.
+          Repo owner: approve and squash-merge when ready.
+
+          If an older PR exists under your personal account for the same work, close it and use this one."
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --base main \
+            --head "$BRANCH" \
+            --title "$TITLE" \
+            --body "$BODY"
