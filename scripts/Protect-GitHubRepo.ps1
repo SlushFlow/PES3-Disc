@@ -170,7 +170,7 @@ Set-MainBranchProtection -Repo $Repo -Branch $Branch
 Write-Host ''
 Write-Host 'Done. Summary of protections applied:' -ForegroundColor Green
 Write-Host '  - main: PR required, 1 approval, CODEOWNER review, no force-push/delete, admins included'
-Write-Host '  - Actions: local workflows + GitHub-owned actions, SHA pinning, read-only GITHUB_TOKEN'
+Write-Host '  - Actions: local workflows + GitHub-owned actions (pinned SHAs), read-only GITHUB_TOKEN; releases use gh CLI'
 if ($forkApprovalOk) {
     Write-Host '  - Fork PR workflows: require approval for all external contributors'
 }
