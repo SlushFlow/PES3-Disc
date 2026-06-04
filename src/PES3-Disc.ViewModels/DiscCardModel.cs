@@ -15,4 +15,5 @@ public sealed class DiscCardModel
     public bool DecryptAvailable { get; init; }
     public string PlayButtonText { get; init; } = "Play";
     public bool IsDismissed { get; set; }
+    public CachedGameEntry? LibraryEntry { get; init; }
 }

@@ -13,11 +13,14 @@ public sealed class Pes3Services
     public PromptedStore Prompted { get; private set; } = null!;
     public PlaySessionRegistry SessionRegistry { get; private set; } = null!;
     public string ConfigPath { get; private set; } = "";
+    public string? ConfigLoadWarning { get; private set; }
 
     public static Pes3Services Load()
     {
         var configPath = Pes3Config.GetDefaultConfigPath();
-        var config = Pes3Config.Load(configPath);
+        var load = Pes3Config.LoadWithDiagnostics(configPath);
+        var config = load.Config;
+        var warning = load.Warning;
         var paths = new Pes3Paths(config);
         var backup = new Pes3BackupService(config, paths);
         var registry = new PlaySessionRegistry(paths);
@@ -25,6 +28,7 @@ public sealed class Pes3Services
         {
             Config = config,
             ConfigPath = configPath,
+            ConfigLoadWarning = warning,
             Paths = paths,
             Cache = new GameCacheService(config, paths),
             Backup = backup,

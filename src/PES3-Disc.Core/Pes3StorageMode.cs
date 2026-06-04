@@ -80,6 +80,16 @@ public static class Pes3StorageModeResolver
     public static bool KeepsPersistentLibrary(Pes3Config config) =>
         Resolve(config) == Pes3StorageMode.PersistentLibrary;
 
+    /// <summary>True when decrypted retail titles are indexed for instant replay (SmartHybrid + library).</summary>
+    public static bool CanReplayFromLibrary(Pes3Config config)
+    {
+        var mode = Resolve(config);
+        return mode is Pes3StorageMode.SmartHybrid or Pes3StorageMode.PersistentLibrary;
+    }
+
+    /// <summary>True when a successful retail decrypt is promoted into the PES3 library.</summary>
+    public static bool PromotesRetailToLibrary(Pes3Config config) => CanReplayFromLibrary(config);
+
     public static bool UsesPersistentLibrary(Pes3Config config) =>
         KeepsPersistentLibrary(config);
 
@@ -92,7 +102,7 @@ public static class Pes3StorageModeResolver
     public static string Describe(Pes3StorageMode mode) => mode switch
     {
         Pes3StorageMode.SmartHybrid =>
-            "Smart: small SSD session + disc provides bulk; removed when RPCS3 exits or you eject the disc. Retail decrypts per session unless in library.",
+            "Smart: DIY uses a small SSD session + disc bulk; retail decrypts once into the library for instant replay (session overlays cleaned on eject).",
         Pes3StorageMode.PersistentLibrary =>
             "Library: keep full game trees on SSD for instant replay (most disk, fastest repeat).",
         Pes3StorageMode.EphemeralSession =>

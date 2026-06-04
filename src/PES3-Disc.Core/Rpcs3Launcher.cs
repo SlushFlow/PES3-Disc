@@ -61,11 +61,28 @@ public sealed class Rpcs3Launcher
         return proc;
     }
 
-    public Process? LaunchGame(string ebootPath, IReadOnlyList<string>? cleanupDirs = null)
+    public string? DescribeLaunchFailure(string ebootPath)
     {
+        if (!File.Exists(ebootPath))
+            return $"Game executable not found: {ebootPath}";
+
         var rpcs3 = FindRpcs3();
         if (rpcs3 is null)
+        {
+            return string.IsNullOrWhiteSpace(_config.Rpcs3Path)
+                ? "RPCS3 is not configured. Open Settings and set the path to rpcs3."
+                : $"RPCS3 was not found at: {_config.Rpcs3Path}";
+        }
+
+        return null;
+    }
+
+    public Process? LaunchGame(string ebootPath, IReadOnlyList<string>? cleanupDirs = null)
+    {
+        if (DescribeLaunchFailure(ebootPath) is not null)
             return null;
+
+        var rpcs3 = FindRpcs3()!;
 
         var args = _config.UseNoGui ? $"--no-gui \"{ebootPath}\"" : $"\"{ebootPath}\"";
         var psi = new ProcessStartInfo

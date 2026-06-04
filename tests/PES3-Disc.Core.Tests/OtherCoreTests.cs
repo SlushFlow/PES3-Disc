@@ -316,7 +316,7 @@ public class GameCacheServiceTests : IDisposable
     }
 
     [Fact]
-    public void FinalizeRetailDecrypt_smart_hybrid_stays_ephemeral()
+    public void FinalizeRetailDecrypt_smart_hybrid_promotes_to_library()
     {
         var config = new Pes3Config
         {
@@ -341,9 +341,19 @@ public class GameCacheServiceTests : IDisposable
         var cleanup = new List<string> { sessionDir };
         var session = cache.FinalizeRetailDecrypt(result, sessionDir, cleanup);
 
-        Assert.Equal(Pes3LibraryTier.EphemeralSession, session.Tier);
-        Assert.Contains(sessionDir, session.CleanupDirs);
-        Assert.False(Directory.Exists(paths.TitleInstallDir("BLUS99999")));
+        Assert.Equal(Pes3LibraryTier.PersistentLibrary, session.Tier);
+        Assert.Empty(session.CleanupDirs);
+        Assert.True(Directory.Exists(paths.TitleInstallDir("BLUS99999")));
+        Assert.NotNull(cache.TryGetCached("any-vol", null, "BLUS99999"));
+    }
+
+    [Fact]
+    public void TryReadProductCodeFromVolume_reads_param_sfo()
+    {
+        var gameRoot = Path.Combine(_tempRoot, "retail-disc");
+        Ps3DiscFixtureBuilder.WriteRetailDisc(gameRoot);
+        var code = GameMetadata.TryReadProductCodeFromVolume(gameRoot + Path.DirectorySeparatorChar);
+        Assert.False(string.IsNullOrWhiteSpace(code));
     }
 
     [Fact]
@@ -383,6 +393,21 @@ public class Pes3StorageModeTests
     {
         var config = new Pes3Config { DeleteCacheAfterPlay = true };
         Assert.Equal(Pes3StorageMode.EphemeralSession, Pes3StorageModeResolver.Resolve(config));
+    }
+
+    [Fact]
+    public void SmartHybrid_can_replay_from_library()
+    {
+        var config = new Pes3Config { StorageMode = "SmartHybrid" };
+        Assert.True(Pes3StorageModeResolver.CanReplayFromLibrary(config));
+        Assert.True(Pes3StorageModeResolver.PromotesRetailToLibrary(config));
+    }
+
+    [Fact]
+    public void EphemeralSession_does_not_replay_from_library()
+    {
+        var config = new Pes3Config { StorageMode = "EphemeralSession" };
+        Assert.False(Pes3StorageModeResolver.CanReplayFromLibrary(config));
     }
 
     [Fact]

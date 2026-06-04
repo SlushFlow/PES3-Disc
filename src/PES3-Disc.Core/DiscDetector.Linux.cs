@@ -24,11 +24,12 @@ public static partial class DiscDetector
 
             var display = label ?? Path.GetFileName(root.TrimEnd('/')) ?? root;
             var index = list.Count;
+            var stableId = BuildLinuxVolumeId(root, deviceNode, display);
             list.Add(new OpticalDrive
             {
                 Letter = (char)('A' + (index % 26)),
                 Root = root,
-                Id = $"{index}|{display}",
+                Id = stableId,
                 VolumeLabel = label,
                 DeviceNode = deviceNode,
             });
@@ -105,6 +106,14 @@ public static partial class DiscDetector
     private static bool IsDiscFilesystem(string fs) =>
         fs.Contains("udf", StringComparison.OrdinalIgnoreCase) ||
         fs.Contains("iso9660", StringComparison.OrdinalIgnoreCase);
+
+    private static string BuildLinuxVolumeId(string root, string? deviceNode, string display)
+    {
+        var key = !string.IsNullOrWhiteSpace(deviceNode)
+            ? deviceNode.Trim()
+            : root.TrimEnd('/');
+        return $"linux|{key}|{display}";
+    }
 
     private static string NormalizeRoot(string root)
     {

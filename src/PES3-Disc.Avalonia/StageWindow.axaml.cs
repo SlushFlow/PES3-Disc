@@ -10,6 +10,7 @@ public partial class StageWindow : Window
     private readonly Func<IProgress<StageProgress>, CancellationToken, Task<PlaySession>> _work;
     private CancellationTokenSource? _cts;
     public PlaySession? Session { get; private set; }
+    public string? ErrorMessage { get; private set; }
 
     public StageWindow(
         OpticalDrive drive,
@@ -53,8 +54,10 @@ public partial class StageWindow : Window
         {
             Close(false);
         }
-        catch
+        catch (Exception ex)
         {
+            ErrorMessage = ex.Message;
+            DetailText.Text = ex.Message;
             Close(false);
         }
     }
