@@ -22,12 +22,16 @@ public sealed class DiscOverlayMaterializer
         var linkedFiles = 0;
         long linkedBytes = 0;
         var linkFailures = 0;
-
-        var allFiles = Directory.EnumerateFiles(discGameRoot, "*", SearchOption.AllDirectories).ToList();
-        var total = allFiles.Count;
         var processed = 0;
+        var total = 0;
 
-        foreach (var sourceFile in allFiles)
+        foreach (var _ in Directory.EnumerateFiles(discGameRoot, "*", SearchOption.AllDirectories))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            total++;
+        }
+
+        foreach (var sourceFile in Directory.EnumerateFiles(discGameRoot, "*", SearchOption.AllDirectories))
         {
             cancellationToken.ThrowIfCancellationRequested();
             processed++;
@@ -47,7 +51,7 @@ public sealed class DiscOverlayMaterializer
                 if (!string.IsNullOrEmpty(dir))
                     Directory.CreateDirectory(dir);
 
-                File.Copy(sourceFile, destFile, overwrite: true);
+                await CopyFileFastAsync(sourceFile, destFile, cancellationToken).ConfigureAwait(false);
                 var len = new FileInfo(sourceFile).Length;
                 localUsed += len;
                 localFiles++;
@@ -66,13 +70,13 @@ public sealed class DiscOverlayMaterializer
             else
             {
                 linkFailures++;
-                File.Copy(sourceFile, destFile, overwrite: true);
+                await CopyFileFastAsync(sourceFile, destFile, cancellationToken).ConfigureAwait(false);
                 localUsed += new FileInfo(sourceFile).Length;
                 localFiles++;
             }
         }
 
-        if (linkFailures > 0 && linkedFiles == 0 && allFiles.Count > 8)
+        if (linkFailures > 0 && linkedFiles == 0 && total > 8)
         {
             Pes3Log.Write($"Disc overlay: {linkFailures} link failures; falling back to full copy.");
             try
@@ -97,10 +101,13 @@ public sealed class DiscOverlayMaterializer
                 EbootPath = ResolveEboot(sessionRoot),
                 Stats = new OverlayStats
                 {
-                    LocalBytes = DirectoryStaging.CountFiles(sessionRoot) > 0
-                        ? allFiles.Sum(f => { try { return new FileInfo(f).Length; } catch { return 0L; } })
+                    LocalBytes = total > 0
+                        ? DirectoryStaging.CountFiles(sessionRoot) > 0
+                            ? Directory.EnumerateFiles(sessionRoot, "*", SearchOption.AllDirectories)
+                                .Sum(f => { try { return new FileInfo(f).Length; } catch { return 0L; } })
+                            : 0
                         : 0,
-                    LocalFiles = allFiles.Count,
+                    LocalFiles = total,
                     UsedFullCopyFallback = true,
                 },
             };
@@ -119,6 +126,25 @@ public sealed class DiscOverlayMaterializer
                 UsedFullCopyFallback = false,
             },
         };
+    }
+
+    private static async Task CopyFileFastAsync(string source, string dest, CancellationToken cancellationToken)
+    {
+        await using var src = new FileStream(
+            source,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            PerformanceTuning.FileCopyBufferBytes,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await using var dst = new FileStream(
+            dest,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            PerformanceTuning.FileCopyBufferBytes,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await src.CopyToAsync(dst, PerformanceTuning.FileCopyBufferBytes, cancellationToken).ConfigureAwait(false);
     }
 
     private bool ShouldCopyLocally(string relativePath, string sourceFile, long localUsed, long localBudget)

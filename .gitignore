@@ -19,6 +19,8 @@ tools/PES3-Disc.DumpCli/obj/
 external/ps3-disc-dumper/
 services/**/bin/
 services/**/obj/
+tests/**/bin/
+tests/**/obj/
 services/**/publish-test/
 services/publish-test/
 services/**/reports.db

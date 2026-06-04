@@ -5,19 +5,22 @@ namespace PES3Disc.App;
 
 public partial class StageWindow : Window
 {
-    private readonly OpticalDrive _drive;
-    private readonly DetectedGame _game;
     private readonly string _displayTitle;
+    private readonly Func<IProgress<StageProgress>, CancellationToken, Task<PlaySession>> _work;
     private CancellationTokenSource? _cts;
     public PlaySession? Session { get; private set; }
     public string? ErrorMessage { get; private set; }
 
-    public StageWindow(OpticalDrive drive, DetectedGame game, string title)
+    public StageWindow(
+        OpticalDrive drive,
+        DetectedGame game,
+        string title,
+        Func<IProgress<StageProgress>, CancellationToken, Task<PlaySession>>? work = null)
     {
         InitializeComponent();
-        _drive = drive;
-        _game = game;
         _displayTitle = title;
+        _work = work ?? ((progress, token) =>
+            App.Services.Cache.PrepareDiyPlayAsync(drive, game, progress, token));
         TitleText.Text = $"Preparing play: {_displayTitle}";
     }
 
@@ -34,11 +37,7 @@ public partial class StageWindow : Window
 
         try
         {
-            Session = await App.Services.Cache.PrepareDiyPlayAsync(
-                _drive,
-                _game,
-                progress,
-                _cts.Token);
+            Session = await _work(progress, _cts.Token);
             if (Session.OverlayStats is { } stats)
             {
                 TitleText.Text = $"Ready: {_displayTitle}";

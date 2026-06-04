@@ -51,21 +51,56 @@ public sealed class Pes3Config
         return Path.Combine(dir, "config.json");
     }
 
-    public static Pes3Config Load(string? path = null)
+    public static Pes3Config Load(string? path = null) => LoadWithDiagnostics(path).Config;
+
+    public static Pes3ConfigLoadResult LoadWithDiagnostics(string? path = null)
     {
         path ??= GetDefaultConfigPath();
         if (!File.Exists(path))
-            return new Pes3Config();
+            return new Pes3ConfigLoadResult { Config = new Pes3Config(), LoadedFromDisk = false };
 
         try
         {
             var json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<Pes3Config>(json, JsonOptions) ?? new Pes3Config();
+            var config = JsonSerializer.Deserialize<Pes3Config>(json, JsonOptions) ?? new Pes3Config();
+            var warning = Validate(config);
+            return new Pes3ConfigLoadResult
+            {
+                Config = config,
+                LoadedFromDisk = true,
+                Warning = warning,
+            };
         }
-        catch
+        catch (Exception ex)
         {
-            return new Pes3Config();
+            Pes3Log.Write($"Config load failed ({path}): {ex.Message}");
+            return new Pes3ConfigLoadResult
+            {
+                Config = new Pes3Config(),
+                LoadedFromDisk = true,
+                Warning = "Settings file could not be read; defaults are in use. Re-save Settings to repair config.json.",
+            };
         }
+    }
+
+    public static string? Validate(Pes3Config config)
+    {
+        if (!string.IsNullOrWhiteSpace(config.Rpcs3Path) && !File.Exists(config.Rpcs3Path))
+            return "RPCS3 path in settings does not exist.";
+
+        if (!string.IsNullOrWhiteSpace(config.StorageMode)
+            && !Pes3StorageModeResolver.TryParse(config.StorageMode, out _))
+            return $"Unknown storage mode \"{config.StorageMode}\"; using SmartHybrid.";
+
+        if (config.ScanDelaySeconds < 1)
+            config.ScanDelaySeconds = 1;
+        else if (config.ScanDelaySeconds > 60)
+            config.ScanDelaySeconds = 60;
+
+        if (config.OverlayMaxLocalMegabytes < 256)
+            config.OverlayMaxLocalMegabytes = 256;
+
+        return null;
     }
 
     public void Save(string? path = null)

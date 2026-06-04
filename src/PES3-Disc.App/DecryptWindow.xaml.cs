@@ -5,17 +5,21 @@ namespace PES3Disc.App;
 
 public partial class DecryptWindow : Window
 {
-    private readonly OpticalDrive _drive;
-    private readonly string _outputDir;
+    private readonly string _displayName;
+    private readonly Func<IProgress<DecryptProgress>, CancellationToken, Task<DecryptResult>> _work;
     private CancellationTokenSource? _cts;
     public DecryptResult? Result { get; private set; }
 
-    public DecryptWindow(OpticalDrive drive, string outputDir)
+    public DecryptWindow(
+        OpticalDrive drive,
+        string outputDir,
+        Func<IProgress<DecryptProgress>, CancellationToken, Task<DecryptResult>>? work = null)
     {
         InitializeComponent();
-        _drive = drive;
-        _outputDir = outputDir;
-        TitleText.Text = $"Decrypting {_drive.DisplayName}:";
+        _displayName = drive.DisplayName;
+        _work = work ?? ((progress, token) =>
+            App.Services.Decryptor.DecryptAsync(drive, outputDir, progress, token));
+        TitleText.Text = $"Decrypting {_displayName}:";
         DetailText.Text = "This may take 30–90+ minutes for large games.";
     }
 
@@ -31,11 +35,7 @@ public partial class DecryptWindow : Window
 
         try
         {
-            Result = await App.Services.Decryptor.DecryptAsync(
-                _drive,
-                _outputDir,
-                progress,
-                _cts.Token);
+            Result = await _work(progress, _cts.Token);
             DialogResult = Result.Success;
             Close();
         }

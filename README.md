@@ -59,7 +59,7 @@ Retail decrypt also needs **internet** (for IRD keys) and can take **30–90+ mi
 |------|----------------|
 | **DIY or burned disc** with a normal `PS3_GAME` folder and **decrypted** `EBOOT.BIN` | Works — app copies to cache, then plays in RPCS3 |
 | **Mounted folder** (dump, ISO extract, etc.) with the same layout | Same as DIY |
-| **Official retail PS3 disc** | Works **after decrypt** — needs a compatible drive; second insert can use **Play from cache** |
+| **Official retail PS3 disc** | Works **after decrypt** — needs a compatible drive; second insert uses **Play from library** (decrypt once, kept on SSD) |
 | **Retail disc + wrong drive** | PC cannot read the disc — upgrade the drive or dump the game elsewhere first |
 
 Your disc should look like this on the drive letter:
@@ -88,7 +88,7 @@ More detail: [docs/DISC-COMPATIBILITY.md](docs/DISC-COMPATIBILITY.md)
 5. On the home screen, choose:
    - **Play** — DIY disc or already-decrypted cache
    - **Decrypt & play** — official retail disc (first time)
-   - **Play from cache** — retail disc you decrypted before
+   - **Play from library** — retail disc you decrypted before (instant, from SSD)
 
 ### Run at Windows login (optional)
 
@@ -110,7 +110,7 @@ In the app **Settings**, enable run at startup — or use the installer’s star
 
 1. PES3-Disc detects a PS3 layout on your disc or mount.
 2. For **DIY** discs in **Smart hybrid** (default), it builds a small **disc-assisted session** on SSD (boot files + links) and reads bulk data from the disc while you play.
-3. For **retail** discs, it **decrypts** into a temp session (Smart hybrid) or the **library** if you chose persistent storage.
+3. For **retail** discs, it **decrypts once** into your **PES3 library** (default Smart hybrid) for instant replay — no manual dumps or ROM downloads.
 4. It starts **RPCS3** with the prepared `EBOOT.BIN`. Session files are removed when RPCS3 exits or you eject the disc.
 
 **Storage modes** in Settings: smart hybrid (default), full library, ephemeral session, or disc-direct (DIY, zero local copy). See [docs/PES3-LIBRARY.md](docs/PES3-LIBRARY.md).

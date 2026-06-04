@@ -14,6 +14,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PES3-Disc.Core\PES3-Disc.Core.csproj" />
+    <ProjectReference Include="..\PES3-Disc.ViewModels\PES3-Disc.ViewModels.csproj" />
     <ProjectReference Include="..\PES3-Disc.BugReports\PES3-Disc.BugReports.csproj" />
   </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Release'">

@@ -48,7 +48,7 @@ public sealed class GameCacheService
 
     public CachedGameEntry? TryGetCached(string? volumeId, string? titleId, string? productCode)
     {
-        if (!Pes3StorageModeResolver.KeepsPersistentLibrary(_config))
+        if (!Pes3StorageModeResolver.CanReplayFromLibrary(_config))
             return null;
 
         EnsureLibraryReady();
@@ -94,41 +94,6 @@ public sealed class GameCacheService
         return null;
     }
 
-    public CachedGameEntry? TryGetSoleIndexedRetail()
-    {
-        if (!Pes3StorageModeResolver.KeepsPersistentLibrary(_config))
-            return null;
-
-        EnsureLibraryReady();
-        CachedGameEntry? sole = null;
-        var libIndex = Pes3LibraryIndex.Load(_paths.LibraryRoot);
-        foreach (var entry in libIndex.Titles.Values)
-        {
-            var hit = TryGameAt(entry.InstallDir, Pes3LibraryTier.PersistentLibrary);
-            if (hit is null)
-                continue;
-            if (sole is not null)
-                return null;
-            sole = hit;
-        }
-
-        if (sole is not null)
-            return sole;
-
-        var legacy = Pes3CacheIndex.Load(_paths.LegacyCacheRoot);
-        foreach (var entry in legacy.Entries.Values)
-        {
-            var hit = TryGameAt(entry.CacheDir, Pes3LibraryTier.PersistentLibrary);
-            if (hit is null)
-                continue;
-            if (sole is not null)
-                return null;
-            sole = hit;
-        }
-
-        return sole;
-    }
-
     public async Task<CachedGameEntry?> TryGetRetailCachedAsync(
         OpticalDrive drive,
         Func<CancellationToken, Task<DiscProbeResult?>>? probeAsync,
@@ -155,11 +120,7 @@ public sealed class GameCacheService
             }
         }
 
-        var hit = TryGetCached(drive.Id, null, productCode);
-        if (hit is not null)
-            return hit;
-
-        return TryGetSoleIndexedRetail();
+        return TryGetCached(drive.Id, null, productCode);
     }
 
     private static CachedGameEntry? TryGameAt(string dir, Pes3LibraryTier tier)
@@ -228,7 +189,7 @@ public sealed class GameCacheService
         var mode = Pes3StorageModeResolver.Resolve(_config);
         var titleId = game.TitleId ?? GameMetadata.ReadTitleFromEboot(game.EbootPath).TitleId;
 
-        if (Pes3StorageModeResolver.KeepsPersistentLibrary(_config))
+        if (Pes3StorageModeResolver.Resolve(_config) != Pes3StorageMode.DiscDirect)
         {
             var cached = TryGetCached(drive.Id, titleId, null);
             if (cached is not null)
@@ -406,12 +367,14 @@ public sealed class GameCacheService
     {
         var eboot = result.Eboot!;
         var mode = Pes3StorageModeResolver.Resolve(_config);
-
-        if (mode == Pes3StorageMode.PersistentLibrary
+        var promoteToLibrary = Pes3StorageModeResolver.PromotesRetailToLibrary(_config)
             && !string.IsNullOrEmpty(result.ProductCode)
-            && result.GameRoot is not null)
+            && result.GameRoot is not null;
+
+        if (promoteToLibrary)
         {
-            var final = _paths.TitleInstallDir(result.ProductCode);
+            _ = _paths.LibraryTitlesRoot;
+            var final = _paths.TitleInstallDir(result.ProductCode!);
             if (Directory.Exists(final))
             {
                 try { Directory.Delete(final, true); } catch { /* ignore */ }
@@ -419,7 +382,7 @@ public sealed class GameCacheService
             try
             {
                 if (!string.Equals(result.GameRoot, final, StringComparison.OrdinalIgnoreCase))
-                    Directory.Move(result.GameRoot, final);
+                    Directory.Move(result.GameRoot!, final);
                 eboot = Path.Combine(final, "PS3_GAME", "USRDIR", "EBOOT.BIN");
                 if (!File.Exists(eboot))
                 {
@@ -431,7 +394,8 @@ public sealed class GameCacheService
             }
             catch
             {
-                cleanup.Add(result.GameRoot);
+                if (result.GameRoot is not null && !cleanup.Contains(result.GameRoot, StringComparer.OrdinalIgnoreCase))
+                    cleanup.Add(result.GameRoot);
             }
         }
         else if (result.GameRoot is not null && cleanup.Count == 0)
@@ -444,20 +408,19 @@ public sealed class GameCacheService
         }
 
         var installDir = GameMetadata.GetGameRootFromEboot(eboot);
-        if (mode == Pes3StorageMode.PersistentLibrary
-            && !string.IsNullOrEmpty(result.ProductCode)
-            && installDir is not null)
+        if (promoteToLibrary && installDir is not null)
         {
             var libIndex = Pes3LibraryIndex.Load(_paths.LibraryRoot);
-            libIndex.Upsert(result.ProductCode, installDir, result.Title, Pes3LibraryTier.PersistentLibrary);
+            libIndex.Upsert(result.ProductCode!, installDir, result.Title, Pes3LibraryTier.PersistentLibrary);
             libIndex.Save(_paths.LibraryRoot);
 
             var legacy = Pes3CacheIndex.Load(_paths.LegacyCacheRoot);
-            legacy.Upsert(result.ProductCode, installDir, result.Title);
+            legacy.Upsert(result.ProductCode!, installDir, result.Title);
             legacy.Save(_paths.LegacyCacheRoot);
+            Pes3Log.Write($"Retail promoted to library: {installDir}");
         }
 
-        var tier = mode == Pes3StorageMode.PersistentLibrary
+        var tier = promoteToLibrary
             ? Pes3LibraryTier.PersistentLibrary
             : Pes3LibraryTier.EphemeralSession;
 

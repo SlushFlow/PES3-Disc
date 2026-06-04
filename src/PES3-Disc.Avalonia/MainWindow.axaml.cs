@@ -24,6 +24,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         RefreshHeader();
+        if (App.Services.ConfigLoadWarning is { } warn)
+            _ui.ShowWarning(warn);
         _scanTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(Math.Max(2, App.Services.Config.ScanDelaySeconds)),
@@ -74,7 +76,11 @@ public partial class MainWindow : Window
         FooterText.Text = App.Controller.Footer;
     }
 
-    private async void Scan_Click(object? sender, RoutedEventArgs e) => await RunScanAsync();
+    private async void Scan_Click(object? sender, RoutedEventArgs e)
+    {
+        App.Controller.InvalidateScanCache();
+        await RunScanAsync();
+    }
 
     private async void Settings_Click(object? sender, RoutedEventArgs e)
     {
@@ -175,13 +181,12 @@ public partial class MainWindow : Window
         {
             if (card.CanDecryptAgain)
             {
-                var playCache = new Button { Content = "Play from cache", Classes = { "primary" } };
+                var playCache = new Button { Content = "Play from library", Classes = { "primary" } };
                 playCache.Click += async (_, _) =>
                 {
-                    var cached = App.Services.Cache.TryGetCached(card.Drive.Id, null, null);
-                    if (cached is not null)
+                    if (card.LibraryEntry is { } cached)
                     {
-                        StatusBanner.Text = $"Playing from cache: {cached.Game.Title}";
+                        StatusBanner.Text = $"Playing from library: {cached.Game.Title}";
                         await App.Controller.PlayFromCacheAsync(cached, _ui);
                     }
                 };

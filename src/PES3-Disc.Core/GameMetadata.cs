@@ -26,6 +26,28 @@ public static class GameMetadata
         return string.IsNullOrEmpty(safe) ? "UNKNOWN" : safe;
     }
 
+    public static string? TryReadProductCodeFromVolume(string driveRoot)
+    {
+        if (string.IsNullOrWhiteSpace(driveRoot))
+            return null;
+
+        if (!driveRoot.EndsWith(Path.DirectorySeparatorChar) && !driveRoot.EndsWith('/'))
+            driveRoot += Path.DirectorySeparatorChar;
+
+        foreach (var sfo in new[]
+                 {
+                     Path.Combine(driveRoot, "PS3_GAME", "PARAM.SFO"),
+                     Path.Combine(driveRoot, "dev_bdvd", "PS3_GAME", "PARAM.SFO"),
+                 })
+        {
+            var fields = ParamSfo.ReadFields(sfo);
+            if (fields.TryGetValue("TITLE_ID", out var id) && !string.IsNullOrWhiteSpace(id))
+                return SanitizeCacheKey(id);
+        }
+
+        return null;
+    }
+
     public static (string TitleId, string Title) ReadTitleFromEboot(string ebootPath)
     {
         var ps3Game = Directory.GetParent(Directory.GetParent(ebootPath)!.FullName)!.FullName;

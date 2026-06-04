@@ -115,56 +115,76 @@ public abstract class DiscDumpBackendBase : IDiscDumpBackend
             psi.Environment["DOTNET_gcServer"] = "1";
             psi.Environment["DOTNET_ReadyToRun"] = "1";
 
-            using var proc = Process.Start(psi);
+            var proc = Process.Start(psi);
             if (proc is null)
                 return Fail("error", "Could not start dump process.");
 
             PerformanceTuning.TryBoostChildProcess(proc);
 
-            var progressCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var progressTask = PollProgressAsync(progressFile, progress, progressCts.Token);
-            var stdoutTask = DrainStreamAsync(proc.StandardOutput, cancellationToken);
-            var stderrTask = DrainStreamAsync(proc.StandardError, cancellationToken);
-
-            await proc.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            await progressCts.CancelAsync().ConfigureAwait(false);
-            try { await progressTask.ConfigureAwait(false); } catch { /* ignore */ }
-
-            var stdout = await stdoutTask.ConfigureAwait(false);
-            var stderr = await stderrTask.ConfigureAwait(false);
-
-            if (proc.ExitCode != 0)
+            using var cancelReg = cancellationToken.Register(() =>
             {
-                var err = ParseLastError(stdout + "\n" + stderr)
-                    ?? (string.IsNullOrWhiteSpace(stderr) ? $"Decryption failed (exit {proc.ExitCode})." : stderr.Trim());
-                return Fail("dump_failed", err);
-            }
-
-            foreach (var line in stdout.Split('\n'))
-            {
-                if (!line.Contains("\"Success\"", StringComparison.OrdinalIgnoreCase))
-                    continue;
                 try
                 {
-                    var result = JsonSerializer.Deserialize<DumpCliResult>(line.Trim(), JsonOptions);
-                    if (result?.Success == true && !string.IsNullOrEmpty(result.Eboot))
-                    {
-                        return new DecryptResult
-                        {
-                            Success = true,
-                            ProductCode = result.ProductCode,
-                            Title = result.Title,
-                            GameRoot = result.GameRoot,
-                            Eboot = result.Eboot,
-                        };
-                    }
+                    if (!proc.HasExited)
+                        proc.Kill(entireProcessTree: true);
                 }
-                catch { /* try next line */ }
-            }
+                catch
+                {
+                    // ignore
+                }
+            });
 
-            return Fail("missing_eboot", "Dump finished but success JSON was not found in output.");
+            try
+            {
+                var progressCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var progressTask = PollProgressAsync(progressFile, progress, progressCts.Token);
+                var stdoutTask = DrainStreamAsync(proc.StandardOutput, cancellationToken);
+                var stderrTask = DrainStreamAsync(proc.StandardError, cancellationToken);
+
+                await proc.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                await progressCts.CancelAsync().ConfigureAwait(false);
+                try { await progressTask.ConfigureAwait(false); } catch { /* ignore */ }
+
+                var stdout = await stdoutTask.ConfigureAwait(false);
+                var stderr = await stderrTask.ConfigureAwait(false);
+
+                if (proc.ExitCode != 0)
+                {
+                    var err = ParseLastError(stdout + "\n" + stderr)
+                        ?? (string.IsNullOrWhiteSpace(stderr) ? $"Decryption failed (exit {proc.ExitCode})." : stderr.Trim());
+                    return Fail("dump_failed", err);
+                }
+
+                foreach (var line in stdout.Split('\n'))
+                {
+                    if (!line.Contains("\"Success\"", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    try
+                    {
+                        var result = JsonSerializer.Deserialize<DumpCliResult>(line.Trim(), JsonOptions);
+                        if (result?.Success == true && !string.IsNullOrEmpty(result.Eboot))
+                        {
+                            return new DecryptResult
+                            {
+                                Success = true,
+                                ProductCode = result.ProductCode,
+                                Title = result.Title,
+                                GameRoot = result.GameRoot,
+                                Eboot = result.Eboot,
+                            };
+                        }
+                    }
+                    catch { /* try next line */ }
+                }
+
+                return Fail("missing_eboot", "Dump finished but success JSON was not found in output.");
+            }
+            finally
+            {
+                proc.Dispose();
+            }
         }
         catch (OperationCanceledException)
         {
