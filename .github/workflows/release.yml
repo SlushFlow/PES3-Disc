@@ -25,7 +25,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Resolve version
         id: version
@@ -43,7 +43,7 @@ jobs:
           Write-Host "Building version $v"
 
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: |
             8.0.x
@@ -94,7 +94,7 @@ jobs:
 
       - name: Upload Inno logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: inno-build-log
           path: |
@@ -114,7 +114,7 @@ jobs:
           }
 
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: PES3-Disc-windows-${{ steps.version.outputs.version }}
           path: |
@@ -127,7 +127,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Resolve version
         id: version
@@ -145,7 +145,7 @@ jobs:
           echo "Building version $v"
 
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: |
             8.0.x
@@ -172,7 +172,7 @@ jobs:
           ./scripts/build-linux.sh
 
       - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: PES3-Disc-linux-${{ steps.version.outputs.version }}
           path: installer/output/PES3-Disc-linux-x64.tar.gz
@@ -218,7 +218,7 @@ jobs:
           echo "Publishing GitHub Release: $tag"
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
@@ -243,7 +243,7 @@ jobs:
           fi
 
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: PES3-Disc-*
           merge-multiple: true
@@ -253,15 +253,28 @@ jobs:
         run: find release-assets -type f
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.rel.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          name: PES3-Disc ${{ steps.rel.outputs.tag }}
-          generate_release_notes: true
-          make_latest: true
-          fail_on_unmatched_files: true
-          files: |
-            release-assets/PES3-Disc-Setup.exe
-            release-assets/PES3-Disc-portable-win-x64.zip
-            release-assets/PES3-Disc-linux-x64.tar.gz
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.rel.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(find release-assets -type f \( \
+            -name 'PES3-Disc-Setup.exe' -o \
+            -name 'PES3-Disc-portable-win-x64.zip' -o \
+            -name 'PES3-Disc-linux-x64.tar.gz' \) | sort)
+          if [ "${#assets[@]}" -ne 3 ]; then
+            echo "::error::Expected 3 release assets, found ${#assets[@]}:"
+            find release-assets -type f
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            echo "Uploaded assets to existing release $TAG"
+          else
+            gh release create "$TAG" \
+              --title "PES3-Disc ${TAG}" \
+              --generate-notes \
+              --latest \
+              "${assets[@]}"
+            echo "Created release $TAG"
+          fi
