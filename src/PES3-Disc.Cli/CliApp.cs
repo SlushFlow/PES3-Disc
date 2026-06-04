@@ -1,4 +1,5 @@
 using PES3Disc.Core;
+using PES3Disc.ViewModels;
 
 namespace PES3Disc.Cli;
 
@@ -456,42 +457,4 @@ public static class CliApp
         Console.WriteLine($"IRD dir:      {(string.IsNullOrWhiteSpace(c.IrdDir) ? PlatformPaths.DefaultIrdDirectory : c.IrdDir)}");
         return 0;
     }
-}
-
-public sealed class Pes3Services
-{
-    public Pes3Config Config { get; private set; } = new();
-    public Pes3Paths Paths { get; private set; } = null!;
-    public GameCacheService Cache { get; private set; } = null!;
-    public Pes3BackupService Backup { get; private set; } = null!;
-    public Rpcs3Launcher Launcher { get; private set; } = null!;
-    public DiscDecryptor Decryptor { get; private set; } = null!;
-    public string ConfigPath { get; private set; } = "";
-
-    public static Pes3Services Load()
-    {
-        var configPath = Pes3Config.GetDefaultConfigPath();
-        var config = Pes3Config.Load(configPath);
-        var paths = new Pes3Paths(config);
-        var backup = new Pes3BackupService(config, paths);
-        return new Pes3Services
-        {
-            Config = config,
-            ConfigPath = configPath,
-            Paths = paths,
-            Cache = new GameCacheService(config, paths),
-            Backup = backup,
-            Launcher = new Rpcs3Launcher(config, paths, backup),
-            Decryptor = new DiscDecryptor(config),
-        };
-    }
-
-    public void Initialize()
-    {
-        Paths.EnsurePes3Folders();
-        Pes3Log.SetPath(Paths.LogPath);
-        Cache.EnsureLibraryReady();
-    }
-
-    public void SaveConfig() => Config.Save(ConfigPath);
 }

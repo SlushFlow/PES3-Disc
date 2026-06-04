@@ -12,5 +12,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PES3-Disc.Core\PES3-Disc.Core.csproj" />
+    <ProjectReference Include="..\PES3-Disc.ViewModels\PES3-Disc.ViewModels.csproj" />
   </ItemGroup>
 </Project>
