@@ -7,6 +7,7 @@ public partial class StageWindow : Window
 {
     private readonly OpticalDrive _drive;
     private readonly DetectedGame _game;
+    private readonly string _displayTitle;
     private CancellationTokenSource? _cts;
     public PlaySession? Session { get; private set; }
     public string? ErrorMessage { get; private set; }
@@ -16,7 +17,8 @@ public partial class StageWindow : Window
         InitializeComponent();
         _drive = drive;
         _game = game;
-        TitleText.Text = $"Preparing play: {title}";
+        _displayTitle = title;
+        TitleText.Text = $"Preparing play: {_displayTitle}";
     }
 
     private bool _started;
@@ -39,7 +41,7 @@ public partial class StageWindow : Window
                 _cts.Token);
             if (Session.OverlayStats is { } stats)
             {
-                TitleText.Text = $"Ready: {title}";
+                TitleText.Text = $"Ready: {_displayTitle}";
                 DetailText.Text = stats.Summary;
             }
             DialogResult = true;
