@@ -1,11 +1,13 @@
-# Opens PRs for cursor/* branches as github-actions[bot] so the repo owner can approve/merge
-# (Cloud Agent ManagePullRequest uses the user's GitHub identity instead.)
+# Opens PRs for cursor/* branches as github-actions[bot] so the repo owner can approve/merge.
+# Requires: Settings → Actions → General → Workflow permissions → Read and write
+#           + "Allow GitHub Actions to create and approve pull requests"
 name: Open Cursor branch PR
 
 on:
   push:
     branches:
       - "cursor/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,14 +19,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Create pull request if none exists
+        id: create_pr
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           BRANCH="${GITHUB_REF#refs/heads/}"
-          EXISTING="$(gh pr list --repo "${{ github.repository }}" --head "$BRANCH" --base main --state open --json number --jq 'length')"
+          REPO="${{ github.repository }}"
+          EXISTING="$(gh pr list --repo "$REPO" --head "$BRANCH" --base main --state open --json number --jq 'length')"
           if [[ "$EXISTING" != "0" ]]; then
             echo "Open PR already exists for $BRANCH"
+            gh pr list --repo "$REPO" --head "$BRANCH" --base main --state open
             exit 0
           fi
           TITLE="Cursor: ${BRANCH#cursor/}"
@@ -35,8 +41,28 @@ jobs:
 
           If an older PR exists under your personal account for the same work, close it and use this one."
           gh pr create \
-            --repo "${{ github.repository }}" \
+            --repo "$REPO" \
             --base main \
             --head "$BRANCH" \
             --title "$TITLE" \
             --body "$BODY"
+
+      - name: Report compare link (manual fallback)
+        if: steps.create_pr.outcome == 'failure'
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          REPO="${{ github.repository }}"
+          OWNER="${{ github.repository_owner }}"
+          NAME="${REPO#*/}"
+          echo "## Actions cannot open a PR yet" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Enable **Allow GitHub Actions to create and approve pull requests**:" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://github.com/${REPO}/settings/actions" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Then re-run this workflow. Or open a PR manually:" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://github.com/${REPO}/compare/main...${BRANCH}?expand=1" >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::GitHub Actions is not permitted to create pull requests. Enable the setting at https://github.com/${REPO}/settings/actions (Workflow permissions → Read and write → Allow GitHub Actions to create and approve pull requests)."
+
+      - name: Require PR creation or existing PR
+        if: steps.create_pr.outcome == 'failure'
+        run: exit 1
