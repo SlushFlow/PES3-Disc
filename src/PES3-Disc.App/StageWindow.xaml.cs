@@ -16,7 +16,7 @@ public partial class StageWindow : Window
         InitializeComponent();
         _drive = drive;
         _game = game;
-        TitleText.Text = $"Preparing cache: {title}";
+        TitleText.Text = $"Preparing play: {title}";
     }
 
     private bool _started;
@@ -37,6 +37,11 @@ public partial class StageWindow : Window
                 _game,
                 progress,
                 _cts.Token);
+            if (Session.OverlayStats is { } stats)
+            {
+                TitleText.Text = $"Ready: {title}";
+                DetailText.Text = stats.Summary;
+            }
             DialogResult = true;
             Close();
         }

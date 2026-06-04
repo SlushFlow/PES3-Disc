@@ -33,9 +33,13 @@ public sealed class Pes3Paths
         if (root is null)
             return;
 
-        foreach (var sub in new[] { "cache", "logs", "state", "temp", "backups" })
+        foreach (var sub in new[] { "cache", "library", "logs", "state", "temp", "backups" })
             Directory.CreateDirectory(Path.Combine(root, sub));
+        Directory.CreateDirectory(LibraryTitlesRoot);
     }
+
+    public static string TitleInstallPath(string libraryRoot, string? key) =>
+        Path.Combine(libraryRoot, "titles", GameMetadata.SanitizeCacheKey(key));
 
     public string LogPath =>
         Pes3Root is not null
@@ -46,6 +50,9 @@ public sealed class Pes3Paths
         Pes3Root is not null
             ? Path.Combine(Pes3Root, "state", "prompted-volumes.json")
             : Path.Combine(AppContext.BaseDirectory, "prompted-volumes.json");
+
+    /// <summary>Legacy flat cache root (migration source + custom path override).</summary>
+    public string LegacyCacheRoot => CacheRoot;
 
     public string CacheRoot
     {
@@ -72,6 +79,37 @@ public sealed class Pes3Paths
         }
     }
 
+    /// <summary>Persistent title library (decrypt/copy targets, indexed replay).</summary>
+    public string LibraryRoot
+    {
+        get
+        {
+            if (Pes3Root is not null)
+            {
+                var lib = Path.Combine(Pes3Root, "library");
+                Directory.CreateDirectory(lib);
+                return lib;
+            }
+
+            var libNextToCache = Path.Combine(CacheRoot, "..", "library");
+            libNextToCache = Path.GetFullPath(libNextToCache);
+            Directory.CreateDirectory(libNextToCache);
+            return libNextToCache;
+        }
+    }
+
+    public string LibraryTitlesRoot
+    {
+        get
+        {
+            var titles = Path.Combine(LibraryRoot, "titles");
+            Directory.CreateDirectory(titles);
+            return titles;
+        }
+    }
+
+    public string TitleInstallDir(string? key) => TitleInstallPath(LibraryRoot, key);
+
     public string BackupRoot
     {
         get
@@ -97,13 +135,17 @@ public sealed class Pes3Paths
         }
     }
 
-    public string NewSessionDir()
+    public string NewSessionDir() => NewDirUnderTemp("session-");
+
+    public string NewDiscOverlayDir() => NewDirUnderTemp("disc-overlay-");
+
+    private string NewDirUnderTemp(string prefix)
     {
         var tempRoot = Pes3Root is not null
             ? Path.Combine(Pes3Root, "temp")
             : Path.Combine(Path.GetTempPath(), "PES3-Disc-sessions");
         Directory.CreateDirectory(tempRoot);
-        var dir = Path.Combine(tempRoot, "session-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Combine(tempRoot, prefix + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         return dir;
     }

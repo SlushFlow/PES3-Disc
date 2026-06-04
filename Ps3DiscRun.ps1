@@ -147,7 +147,7 @@ function Initialize-Pes3DataPaths {
     }
 
     $pes3 = Join-Path $rpcs3Dir 'PES3'
-    foreach ($sub in @('cache', 'logs', 'state', 'temp', 'backups')) {
+    foreach ($sub in @('cache', 'library', 'logs', 'state', 'temp', 'backups')) {
         $p = Join-Path $pes3 $sub
         if (-not (Test-Path -LiteralPath $p)) {
             New-Item -ItemType Directory -Path $p -Force | Out-Null
@@ -201,12 +201,163 @@ function Get-DumpCacheRoot {
     return $fallback
 }
 
-function Test-DeleteCacheAfterPlay {
+function Get-Pes3StorageMode {
     $config = Get-Config
-    if ($config -and $null -ne $config.DeleteCacheAfterPlay) {
-        return [bool]$config.DeleteCacheAfterPlay
+    if ($config -and $config.StorageMode) {
+        $raw = $config.StorageMode.ToString().Trim().ToLowerInvariant() -replace '[-_]', ''
+        switch -Regex ($raw) {
+            '^(smart|smarthybrid|hybrid|default)$' { return 'SmartHybrid' }
+            '^(library|persistent|persistentlibrary|cache)$' { return 'PersistentLibrary' }
+            '^(session|ephemeral|ephemeralsession|temp)$' { return 'EphemeralSession' }
+            '^(disc|discdirect|direct|playfromdisc)$' { return 'DiscDirect' }
+        }
     }
-    return $true
+    if ($config -and $null -ne $config.DeleteCacheAfterPlay -and [bool]$config.DeleteCacheAfterPlay) {
+        return 'EphemeralSession'
+    }
+    return 'SmartHybrid'
+}
+
+function Test-KeepsPersistentLibrary {
+    return (Get-Pes3StorageMode) -eq 'PersistentLibrary'
+}
+
+function Test-UsesPersistentLibrary {
+    return Test-KeepsPersistentLibrary
+}
+
+function Test-AllowsDiscDirect {
+    return (Get-Pes3StorageMode) -eq 'DiscDirect'
+}
+
+function Test-UsesEphemeralRetailSession {
+    return (Get-Pes3StorageMode) -in @('SmartHybrid', 'EphemeralSession')
+}
+
+function Test-DeleteCacheAfterPlay {
+    return (Get-Pes3StorageMode) -eq 'EphemeralSession'
+}
+
+function Get-ActivePes3SessionsPath {
+    if (Initialize-Pes3DataPaths) {
+        return Join-Path $Script:Pes3Root 'state\active-sessions.json'
+    }
+    return Join-Path $env:LOCALAPPDATA 'PES3-Disc\state\active-sessions.json'
+}
+
+function Register-ActivePes3Session {
+    param(
+        [string]$VolumeId,
+        [string[]]$CleanupDirs,
+        [string]$DiscRoot = ''
+    )
+    if (-not $VolumeId -or -not $CleanupDirs -or $CleanupDirs.Count -eq 0) { return }
+    $path = Get-ActivePes3SessionsPath
+    $dir = Split-Path -Parent $path
+    if (-not (Test-Path -LiteralPath $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    $list = @()
+    if (Test-Path -LiteralPath $path) {
+        try {
+            $list = @(Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json)
+        } catch { $list = @() }
+    }
+    $list += [PSCustomObject]@{
+        VolumeId    = $VolumeId
+        CleanupDirs = @($CleanupDirs)
+        DiscRoot    = $DiscRoot
+        RegisteredUtc = (Get-Date).ToUniversalTime().ToString('o')
+    }
+    $list | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $path -Encoding UTF8
+}
+
+function Remove-ActivePes3SessionsForEjectedVolumes {
+    $config = Get-Config
+    if ($config -and $null -ne $config.CleanupSessionsOnDiscEject -and -not [bool]$config.CleanupSessionsOnDiscEject) {
+        return
+    }
+    $path = Get-ActivePes3SessionsPath
+    if (-not (Test-Path -LiteralPath $path)) { return }
+    $present = @{}
+    foreach ($d in Get-OpticalDrives) { $present[$d.Id] = $true }
+    try {
+        $list = @(Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json)
+    } catch { return }
+    $remaining = @()
+    foreach ($entry in $list) {
+        $vid = $entry.VolumeId
+        if ($vid -and -not $present.ContainsKey($vid)) {
+            foreach ($dir in @($entry.CleanupDirs)) {
+                if ($dir -and (Test-Path -LiteralPath $dir)) {
+                    Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+                    Write-Log "Eject cleanup removed session: $dir"
+                }
+            }
+        } else {
+            $remaining += $entry
+        }
+    }
+    if ($remaining.Count -eq 0) {
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    } else {
+        $remaining | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $path -Encoding UTF8
+    }
+}
+
+function Get-Pes3LibraryRoot {
+    if (Initialize-Pes3DataPaths) {
+        $lib = Join-Path $Script:Pes3Root 'library'
+        if (-not (Test-Path -LiteralPath $lib)) {
+            New-Item -ItemType Directory -Path $lib -Force | Out-Null
+        }
+        return $lib
+    }
+    $cache = Get-DumpCacheRoot
+    $lib = [System.IO.Path]::GetFullPath((Join-Path $cache '..\library'))
+    if (-not (Test-Path -LiteralPath $lib)) {
+        New-Item -ItemType Directory -Path $lib -Force | Out-Null
+    }
+    return $lib
+}
+
+function Get-Pes3LibraryTitlesRoot {
+    $titles = Join-Path (Get-Pes3LibraryRoot) 'titles'
+    if (-not (Test-Path -LiteralPath $titles)) {
+        New-Item -ItemType Directory -Path $titles -Force | Out-Null
+    }
+    return $titles
+}
+
+function Get-Pes3TitleInstallPath {
+    param([string]$Key)
+    $safe = ($Key -replace '[\\/:*?"<>|]', '_').Trim()
+    if ($safe.Length -gt 64) { $safe = $safe.Substring(0, 64) }
+    if (-not $safe) { $safe = 'UNKNOWN' }
+    return (Join-Path (Get-Pes3LibraryTitlesRoot) $safe)
+}
+
+function Invoke-Pes3LibraryMigration {
+    $libraryRoot = Get-Pes3LibraryRoot
+    $marker = Join-Path $libraryRoot '.pes3-library-migration-v1.done'
+    if (Test-Path -LiteralPath $marker) { return }
+
+    $legacyRoot = Get-DumpCacheRoot
+    $titlesRoot = Get-Pes3LibraryTitlesRoot
+    foreach ($dir in Get-ChildItem -LiteralPath $legacyRoot -Directory -ErrorAction SilentlyContinue) {
+        $name = $dir.Name
+        if ($name -eq '.pes3-cache-index.json' -or $name.StartsWith('.')) { continue }
+        $target = Join-Path $titlesRoot $name
+        if (Test-Path -LiteralPath $target) { continue }
+        try {
+            Move-Item -LiteralPath $dir.FullName -Destination $target -Force
+            Write-Log "Library migration: $name -> $target"
+        }
+        catch {
+            Write-Log "Library migration skipped ${name}: $_"
+        }
+    }
+    Set-Content -LiteralPath $marker -Value ((Get-Date).ToString('o')) -Encoding UTF8
 }
 
 function Get-EphemeralSessionDir {
@@ -222,6 +373,125 @@ function Get-EphemeralSessionDir {
     $dir = Join-Path $tempRoot ("session-{0}" -f [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
     return $dir
+}
+
+function Get-DiscOverlaySessionDir {
+    $tempRoot = if (Initialize-Pes3DataPaths) {
+        Join-Path $Script:Pes3Root 'temp'
+    }
+    else {
+        Join-Path $env:TEMP 'PES3-Disc-sessions'
+    }
+    if (-not (Test-Path -LiteralPath $tempRoot)) {
+        New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+    }
+    $dir = Join-Path $tempRoot ("disc-overlay-{0}" -f [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    return $dir
+}
+
+function Test-OverlayMaterializeLocal {
+    param(
+        [string]$RelativePath,
+        [long]$FileLength,
+        [long]$LocalUsed,
+        [long]$MaxLocalBytes
+    )
+    $norm = $RelativePath -replace '\\', '/'
+    $always = @(
+        'PS3_GAME/PARAM.SFO',
+        'PS3_GAME/ICON0.PNG',
+        'PS3_GAME/USRDIR/EBOOT.BIN',
+        'PS3_GAME/USRDIR/EBOOT.BIN.SELF'
+    )
+    foreach ($p in $always) {
+        if ($norm -ieq $p -or $norm -like "*$p") { return $true }
+    }
+    $maxFile = 4MB
+    if ($FileLength -le $maxFile -and ($LocalUsed + $FileLength) -le $MaxLocalBytes) {
+        return $true
+    }
+    return $false
+}
+
+function New-DiscOverlayFileLink {
+    param(
+        [string]$LinkPath,
+        [string]$TargetPath
+    )
+    $parent = Split-Path -Parent $LinkPath
+    if ($parent -and -not (Test-Path -LiteralPath $parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+    if (Test-Path -LiteralPath $LinkPath) { return $true }
+    try {
+        $targetFull = [System.IO.Path]::GetFullPath($TargetPath)
+        New-Item -ItemType SymbolicLink -Path $LinkPath -Target $targetFull -Force | Out-Null
+        return $true
+    }
+    catch {
+        try {
+            cmd /c mklink "`"$LinkPath`"" "`"$([System.IO.Path]::GetFullPath($TargetPath))`"" 2>$null | Out-Null
+            return (Test-Path -LiteralPath $LinkPath)
+        }
+        catch { return $false }
+    }
+}
+
+function Build-DiscAssistedOverlay {
+    param(
+        [string]$GameRoot,
+        [hashtable]$Drive
+    )
+    $gameRoot = [System.IO.Path]::GetFullPath($GameRoot.TrimEnd('\', '/'))
+    $sessionRoot = Get-DiscOverlaySessionDir
+    $config = Get-Config
+    $maxMb = 2048
+    if ($config -and $config.OverlayMaxLocalMegabytes) {
+        $maxMb = [int]$config.OverlayMaxLocalMegabytes
+        if ($maxMb -lt 64) { $maxMb = 64 }
+        if ($maxMb -gt 32768) { $maxMb = 32768 }
+    }
+    $maxBytes = [long]$maxMb * 1024 * 1024
+    $localUsed = [long]0
+    $linkFailures = 0
+    $files = Get-ChildItem -LiteralPath $gameRoot -Recurse -File -ErrorAction SilentlyContinue
+    foreach ($file in $files) {
+        $rel = [System.IO.Path]::GetRelativePath($gameRoot, $file.FullName)
+        $dest = Join-Path $sessionRoot $rel
+        if (Test-OverlayMaterializeLocal -RelativePath $rel -FileLength $file.Length -LocalUsed $localUsed -MaxLocalBytes $maxBytes) {
+            $destDir = Split-Path -Parent $dest
+            if ($destDir -and -not (Test-Path -LiteralPath $destDir)) {
+                New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+            }
+            Copy-Item -LiteralPath $file.FullName -Destination $dest -Force
+            $localUsed += $file.Length
+        }
+        elseif (New-DiscOverlayFileLink -LinkPath $dest -TargetPath $file.FullName) {
+            # linked
+        }
+        else {
+            $linkFailures++
+            $destDir = Split-Path -Parent $dest
+            if ($destDir -and -not (Test-Path -LiteralPath $destDir)) {
+                New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+            }
+            Copy-Item -LiteralPath $file.FullName -Destination $dest -Force
+            $localUsed += $file.Length
+        }
+    }
+    if ($linkFailures -gt 0 -and $files.Count -gt 8) {
+        Write-Log "Disc overlay: link failures; full copy fallback."
+        if (Test-Path -LiteralPath $sessionRoot) {
+            Remove-Item -LiteralPath $sessionRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        $sessionRoot = Get-DiscOverlaySessionDir
+        if (-not (Copy-DirectoryTree -Source $gameRoot -Destination $sessionRoot)) {
+            throw 'Disc overlay fallback copy failed.'
+        }
+    }
+    Write-Log "Disc-assisted overlay: ~$([math]::Round($localUsed/1MB, 1)) MB local at $sessionRoot"
+    return $sessionRoot
 }
 
 function Register-EphemeralCacheCleanup {
@@ -804,7 +1074,8 @@ function Save-Config {
         UseNoGui                     = $UseNoGui
         EnableRetailDecrypt          = if ($existing -and $null -ne $existing.EnableRetailDecrypt) { $existing.EnableRetailDecrypt } else { $true }
         DecryptUnknownOpticalMedia   = if ($existing -and $null -ne $existing.DecryptUnknownOpticalMedia) { $existing.DecryptUnknownOpticalMedia } else { $false }
-        DeleteCacheAfterPlay         = if ($existing -and $null -ne $existing.DeleteCacheAfterPlay) { $existing.DeleteCacheAfterPlay } else { $true }
+        DeleteCacheAfterPlay         = if ($existing -and $null -ne $existing.DeleteCacheAfterPlay) { $existing.DeleteCacheAfterPlay } else { $false }
+        StorageMode                  = if ($existing -and $existing.StorageMode) { $existing.StorageMode } else { 'SmartHybrid' }
         DumpCachePath                = if ($existing -and $existing.DumpCachePath) { $existing.DumpCachePath } else { '' }
         DumpCliPath                  = if ($existing -and $existing.DumpCliPath) { $existing.DumpCliPath } else { '' }
         EnableBackups                = if ($existing -and $null -ne $existing.EnableBackups) { $existing.EnableBackups } else { $true }
@@ -1157,6 +1428,9 @@ Run this game in RPCS3 now?
             $useNoGui = [bool]$config.UseNoGui
         }
         Start-Rpcs3Game -Rpcs3Path $rpcs3 -EbootPath $Game.Eboot -UseNoGui $useNoGui -EphemeralCleanupDirs $cleanupDirs -Game $Game
+        if ($cleanupDirs -and $cleanupDirs.Count -gt 0) {
+            Register-ActivePes3Session -VolumeId $Drive.Id -CleanupDirs $cleanupDirs -DiscRoot $Drive.Root
+        }
     }
     else {
         Write-Log "User declined: $($Game.Eboot)"
@@ -1193,12 +1467,17 @@ function Get-CachedGameDump {
         [string]$TitleId = ''
     )
 
-    if (Test-DeleteCacheAfterPlay) {
+    if (-not (Test-UsesPersistentLibrary)) {
         return $null
     }
 
-    $cacheRoot = Get-DumpCacheRoot
+    [void](Invoke-Pes3LibraryMigration)
     $search = @()
+    foreach ($key in @($ProductCode, $TitleId)) {
+        if (-not $key) { continue }
+        $search += Get-Pes3TitleInstallPath -Key $key
+    }
+    $cacheRoot = Get-DumpCacheRoot
     foreach ($key in @($ProductCode, $TitleId)) {
         if (-not $key) { continue }
         $safe = ($key -replace '[\\/:*?"<>|]', '_').Trim()
@@ -1248,16 +1527,23 @@ function Prepare-GamePlayCache {
         [hashtable]$Game
     )
 
+    [void](Invoke-Pes3LibraryMigration)
     $meta = Get-GameMetadataFromEboot -EbootPath $Game.Eboot
     $titleId = if ($Game.TitleId) { $Game.TitleId } else { $meta.TitleId }
 
     $cached = Get-CachedGameDump -VolumeId $Drive.Id -ProductCode $null -TitleId $titleId
     if ($cached) {
-        Write-Log "Using cached DIY dump: $($cached.Game.Eboot)"
+        Write-Log "Using PES3 library DIY title: $($cached.Game.Eboot)"
         $Game.Eboot = $cached.Game.Eboot
         $Game.Title = $cached.Game.Title
         $Game.TitleId = $titleId
         $Game.GameRoot = $cached.CacheDir
+        $Game.EphemeralCleanupDirs = @()
+        return $Game
+    }
+
+    if ((Get-Pes3StorageMode) -eq 'DiscDirect' -and (Test-Path -LiteralPath $Game.Eboot)) {
+        Write-Log "DIY play from disc reference: $($Game.Eboot)"
         $Game.EphemeralCleanupDirs = @()
         return $Game
     }
@@ -1267,12 +1553,29 @@ function Prepare-GamePlayCache {
         throw "Could not locate game folder on disc for cache staging."
     }
 
-    if (Test-DeleteCacheAfterPlay) {
+    if ((Get-Pes3StorageMode) -eq 'SmartHybrid') {
+        $dest = Build-DiscAssistedOverlay -GameRoot $gameRoot -Drive $Drive
+        $cleanup = @($dest)
+        $staged = Find-Ps3GameOnDrive -DriveRoot ($dest + '\')
+        if (-not $staged) {
+            throw "EBOOT.BIN not found after disc-assisted overlay."
+        }
+        $Game.Eboot = $staged.Eboot
+        $Game.Title = $staged.Title
+        $Game.TitleId = $titleId
+        $Game.GameRoot = $dest
+        $Game.EphemeralCleanupDirs = $cleanup
+        Register-ActivePes3Session -VolumeId $Drive.Id -CleanupDirs $cleanup -DiscRoot $Drive.Root
+        Write-Log "DIY disc-assisted overlay ready: $($Game.Eboot)"
+        return $Game
+    }
+
+    if ((Get-Pes3StorageMode) -eq 'EphemeralSession') {
         $dest = Get-EphemeralSessionDir
         $cleanup = @($dest)
     }
     else {
-        $dest = Join-Path (Get-DumpCacheRoot) $titleId
+        $dest = Get-Pes3TitleInstallPath -Key $titleId
         if (Test-Path -LiteralPath $dest) {
             Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue
         }
@@ -1280,7 +1583,7 @@ function Prepare-GamePlayCache {
         $cleanup = @()
     }
 
-    Write-Log "Staging DIY disc to cache: $gameRoot -> $dest"
+    Write-Log "Staging DIY disc to library: $gameRoot -> $dest"
     if (-not (Copy-DirectoryTree -Source $gameRoot -Destination $dest)) {
         throw "Failed to copy disc files to PES3 cache."
     }
@@ -1413,8 +1716,8 @@ You need:
         return $PromptedVolumes
     }
 
-    $ephemeral = Test-DeleteCacheAfterPlay
-    if (-not $ephemeral) {
+    $ephemeral = Test-UsesEphemeralRetailSession
+    if (Test-KeepsPersistentLibrary) {
         $cached = Get-CachedRetailDump -VolumeId $Drive.Id -ProductCode $null
         if ($cached) {
             Write-Log "Using cached retail dump: $($cached.Game.Eboot)"
@@ -1565,9 +1868,8 @@ Decrypt and play now?
         $gameRoot = $dumpResult.GameRoot
         $ebootPath = $dumpResult.Eboot
 
-        if (-not $ephemeral -and $dumpResult.ProductCode -and $gameRoot) {
-            $cacheRoot = Get-DumpCacheRoot
-            $finalCache = Join-Path $cacheRoot $dumpResult.ProductCode
+        if (Test-KeepsPersistentLibrary -and $dumpResult.ProductCode -and $gameRoot) {
+            $finalCache = Get-Pes3TitleInstallPath -Key $dumpResult.ProductCode
             if (Test-Path -LiteralPath $gameRoot) {
                 if (Test-Path -LiteralPath $finalCache) {
                     $oldEboot = Join-Path $finalCache 'PS3_GAME\USRDIR\EBOOT.BIN'
@@ -1652,6 +1954,7 @@ function Update-DiscScan {
             }
         }
         Set-PromptedVolumes -Volumes $prompted
+        Remove-ActivePes3SessionsForEjectedVolumes
         return
     }
 

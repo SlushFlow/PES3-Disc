@@ -68,18 +68,7 @@ public sealed class Rpcs3Launcher
         {
             await proc.WaitForExitAsync().ConfigureAwait(false);
             await Task.Delay(TimeSpan.FromSeconds(6)).ConfigureAwait(false);
-            foreach (var dir in dirs.Distinct().OrderByDescending(d => d.Length))
-            {
-                try
-                {
-                    if (Directory.Exists(dir))
-                        Directory.Delete(dir, recursive: true);
-                }
-                catch
-                {
-                    // ignore
-                }
-            }
+            SessionCleanup.DeleteTrees(dirs);
         }
         catch
         {

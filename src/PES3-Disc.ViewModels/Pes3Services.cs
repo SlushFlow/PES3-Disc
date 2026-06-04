@@ -11,6 +11,7 @@ public sealed class Pes3Services
     public Rpcs3Launcher Launcher { get; private set; } = null!;
     public DiscDecryptor Decryptor { get; private set; } = null!;
     public PromptedStore Prompted { get; private set; } = null!;
+    public PlaySessionRegistry SessionRegistry { get; private set; } = null!;
     public string ConfigPath { get; private set; } = "";
 
     public static Pes3Services Load()
@@ -19,6 +20,7 @@ public sealed class Pes3Services
         var config = Pes3Config.Load(configPath);
         var paths = new Pes3Paths(config);
         var backup = new Pes3BackupService(config, paths);
+        var registry = new PlaySessionRegistry(paths);
         return new Pes3Services
         {
             Config = config,
@@ -29,6 +31,7 @@ public sealed class Pes3Services
             Launcher = new Rpcs3Launcher(config, paths, backup),
             Decryptor = new DiscDecryptor(config),
             Prompted = new PromptedStore(paths),
+            SessionRegistry = registry,
         };
     }
 
@@ -36,6 +39,7 @@ public sealed class Pes3Services
     {
         Paths.EnsurePes3Folders();
         Pes3Log.SetPath(Paths.LogPath);
+        Cache.EnsureLibraryReady();
     }
 
     public void SaveConfig()
@@ -47,6 +51,7 @@ public sealed class Pes3Services
         Launcher = new Rpcs3Launcher(Config, Paths, Backup);
         Decryptor = new DiscDecryptor(Config);
         Prompted = new PromptedStore(Paths);
+        SessionRegistry = new PlaySessionRegistry(Paths);
         Initialize();
     }
 }

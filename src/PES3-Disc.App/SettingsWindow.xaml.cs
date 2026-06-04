@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using Microsoft.Win32;
 using PES3Disc.Core;
 
@@ -12,7 +13,7 @@ public partial class SettingsWindow : Window
         var c = App.Services.Config;
         Rpcs3Box.Text = c.Rpcs3Path;
         NoGuiCheck.IsChecked = c.UseNoGui;
-        DeleteCacheCheck.IsChecked = c.DeleteCacheAfterPlay;
+        PopulateStorageModes(Pes3StorageModeResolver.Resolve(c));
         CachePathBox.Text = c.DumpCachePath;
         RetailCheck.IsChecked = c.EnableRetailDecrypt;
         UnknownCheck.IsChecked = c.DecryptUnknownOpticalMedia;
@@ -22,6 +23,8 @@ public partial class SettingsWindow : Window
         BackupOnLaunchCheck.IsChecked = c.BackupOnLaunch;
         StartupCheck.IsChecked = c.RunAtStartup;
         DelayBox.Text = c.ScanDelaySeconds.ToString();
+        EjectCleanupCheck.IsChecked = c.CleanupSessionsOnDiscEject;
+        OverlayMbBox.Text = c.OverlayMaxLocalMegabytes.ToString();
         BugReportApiBox.Text = c.BugReportApiUrl;
         RefreshLegalStatus();
     }
@@ -43,6 +46,39 @@ public partial class SettingsWindow : Window
         App.Services.SaveConfig();
         if (LegalTermsWindow.Prompt(this))
             RefreshLegalStatus();
+    }
+
+    private void PopulateStorageModes(Pes3StorageMode current)
+    {
+        var items = new[]
+        {
+            (Pes3StorageMode.SmartHybrid, "Smart hybrid (recommended)"),
+            (Pes3StorageMode.PersistentLibrary, "Persistent library"),
+            (Pes3StorageMode.EphemeralSession, "Ephemeral session"),
+            (Pes3StorageMode.DiscDirect, "Play DIY from disc (no copy)"),
+        };
+        StorageModeCombo.ItemsSource = items.Select(t => new ComboBoxItem
+        {
+            Content = t.Item2,
+            Tag = t.Item1,
+        }).ToList();
+        StorageModeCombo.DisplayMemberPath = "Content";
+        for (var i = 0; i < StorageModeCombo.Items.Count; i++)
+        {
+            if (StorageModeCombo.Items[i] is ComboBoxItem { Tag: Pes3StorageMode m } && m == current)
+            {
+                StorageModeCombo.SelectedIndex = i;
+                break;
+            }
+        }
+        if (StorageModeCombo.SelectedIndex < 0)
+            StorageModeCombo.SelectedIndex = 0;
+        StorageModeCombo.SelectionChanged += (_, _) =>
+        {
+            if (StorageModeCombo.SelectedItem is ComboBoxItem { Tag: Pes3StorageMode mode })
+                StorageModeHint.Text = Pes3StorageModeResolver.Describe(mode);
+        };
+        StorageModeHint.Text = Pes3StorageModeResolver.Describe(current);
     }
 
     private void Browse_Click(object sender, RoutedEventArgs e)
@@ -73,7 +109,8 @@ public partial class SettingsWindow : Window
         var c = App.Services.Config;
         c.Rpcs3Path = path;
         c.UseNoGui = NoGuiCheck.IsChecked == true;
-        c.DeleteCacheAfterPlay = DeleteCacheCheck.IsChecked == true;
+        if (StorageModeCombo.SelectedItem is ComboBoxItem { Tag: Pes3StorageMode mode })
+            Pes3StorageModeResolver.Apply(c, mode);
         c.DumpCachePath = CachePathBox.Text.Trim();
         c.EnableRetailDecrypt = RetailCheck.IsChecked == true;
         c.DecryptUnknownOpticalMedia = UnknownCheck.IsChecked == true;
@@ -83,6 +120,9 @@ public partial class SettingsWindow : Window
         c.BackupOnLaunch = BackupOnLaunchCheck.IsChecked == true;
         c.RunAtStartup = StartupCheck.IsChecked == true;
         c.ScanDelaySeconds = delay;
+        c.CleanupSessionsOnDiscEject = EjectCleanupCheck.IsChecked == true;
+        if (int.TryParse(OverlayMbBox.Text.Trim(), out var overlayMb))
+            c.OverlayMaxLocalMegabytes = Math.Clamp(overlayMb, 64, 32_768);
         c.BugReportApiUrl = BugReportApiBox.Text.Trim();
         c.SetupComplete = true;
         App.Services.SaveConfig();

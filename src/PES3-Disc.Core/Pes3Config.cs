@@ -11,6 +11,8 @@ public sealed class Pes3Config
     public bool EnableRetailDecrypt { get; set; } = true;
     public bool DecryptUnknownOpticalMedia { get; set; }
     public bool DeleteCacheAfterPlay { get; set; }
+    /// <summary>SmartHybrid | PersistentLibrary | EphemeralSession | DiscDirect. Empty = infer from <see cref="DeleteCacheAfterPlay"/>.</summary>
+    public string StorageMode { get; set; } = "";
     public string DumpCachePath { get; set; } = "";
     public string DumpCliPath { get; set; } = "";
     public string IrdDir { get; set; } = "";
@@ -25,6 +27,12 @@ public sealed class Pes3Config
     public string? AcceptedLegalTermsVersion { get; set; }
     public DateTime? LegalTermsAcceptedUtc { get; set; }
     public string BugReportApiUrl { get; set; } = "";
+    /// <summary>Remove disc-assisted session trees when the optical volume is ejected.</summary>
+    public bool CleanupSessionsOnDiscEject { get; set; } = true;
+    /// <summary>Max SSD bytes for small/critical files in a disc-assisted overlay (rest linked from disc).</summary>
+    public int OverlayMaxLocalMegabytes { get; set; } = 2048;
+    /// <summary>Optional relative paths always copied locally in overlay mode.</summary>
+    public string[]? OverlayAlwaysLocalPatterns { get; set; }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

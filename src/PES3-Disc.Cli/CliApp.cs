@@ -122,6 +122,9 @@ public static class CliApp
 
     private static void RunScan()
     {
+        if (_svc.Config.CleanupSessionsOnDiscEject)
+            _svc.SessionRegistry.CleanupEjectedVolumes();
+
         _lastScan.Clear();
         var drives = DiscDetector.GetOpticalDrives();
         if (drives.Count == 0)
@@ -351,18 +354,12 @@ public static class CliApp
             // ignore
         }
 
-        string outputDir;
-        var cleanup = new List<string>();
-        if (_svc.Config.DeleteCacheAfterPlay)
-        {
-            outputDir = _svc.Paths.NewSessionDir();
-            cleanup.Add(outputDir);
-        }
-        else
-        {
-            outputDir = _svc.Cache.ResolveRetailOutputDir(probe?.ProductCode);
-            Directory.CreateDirectory(outputDir);
-        }
+        var mode = Pes3StorageModeResolver.Resolve(_svc.Config);
+        var outputDir = _svc.Cache.ResolveRetailOutputDir(probe?.ProductCode);
+        Directory.CreateDirectory(outputDir);
+        var cleanup = mode == Pes3StorageMode.PersistentLibrary
+            ? new List<string>()
+            : new List<string> { outputDir };
 
         Console.WriteLine($"Decrypting to {outputDir} (this may take a long time)…");
         var result = await _svc.Decryptor.DecryptAsync(drive, outputDir, new Progress<DecryptProgress>(PrintDecryptProgress), ct);
@@ -370,7 +367,7 @@ public static class CliApp
         if (!result.Success)
         {
             Console.Error.WriteLine(result.ErrorMessage ?? "Decrypt failed.");
-            if (_svc.Config.DeleteCacheAfterPlay && Directory.Exists(outputDir))
+            if (mode != Pes3StorageMode.PersistentLibrary && Directory.Exists(outputDir))
             {
                 try { Directory.Delete(outputDir, true); } catch { /* ignore */ }
             }
@@ -378,6 +375,16 @@ public static class CliApp
         }
 
         var session = _svc.Cache.FinalizeRetailDecrypt(result, outputDir, cleanup);
+        session = new PlaySession
+        {
+            EbootPath = session.EbootPath,
+            CleanupDirs = session.CleanupDirs,
+            FromCache = session.FromCache,
+            CacheDir = session.CacheDir,
+            Tier = session.Tier,
+            VolumeId = drive.Id,
+            DiscRoot = drive.Root,
+        };
         await LaunchSessionAsync(session, ct);
     }
 
@@ -397,6 +404,12 @@ public static class CliApp
             Console.Error.WriteLine("Could not start RPCS3. Run: pes3-disc setup /path/to/rpcs3");
             return;
         }
+        if (session.CleanupDirs.Count > 0 && !string.IsNullOrWhiteSpace(session.VolumeId))
+            _svc.SessionRegistry.Register(session);
+
+        if (session.OverlayStats is { } stats)
+            Console.WriteLine($"Disc-assisted: {stats.Summary}");
+
         Console.WriteLine($"Launched RPCS3 (PID {proc.Id}). Waiting for exit…");
         await proc.WaitForExitAsync(ct);
         Console.WriteLine("RPCS3 exited.");
@@ -436,7 +449,9 @@ public static class CliApp
         Console.WriteLine($"Config:     {Pes3Config.GetDefaultConfigPath()}");
         Console.WriteLine($"RPCS3:      {c.Rpcs3Path}");
         Console.WriteLine($"PES3 root:  {_svc.Paths.Pes3Root ?? "(unknown)"}");
-        Console.WriteLine($"Cache:      {_svc.Paths.CacheRoot}");
+        Console.WriteLine($"Library:    {_svc.Paths.LibraryRoot}");
+        Console.WriteLine($"Legacy cache: {_svc.Paths.LegacyCacheRoot}");
+        Console.WriteLine($"Storage mode: {Pes3StorageModeResolver.Resolve(c)}");
         Console.WriteLine($"Delete cache after play: {c.DeleteCacheAfterPlay}");
         Console.WriteLine($"Retail decrypt: {c.EnableRetailDecrypt}");
         Console.WriteLine($"Dump CLI:     {DiscDecryptor.FindDumpCliPath(c) ?? "(not found)"}");
@@ -477,6 +492,7 @@ public sealed class Pes3Services
     {
         Paths.EnsurePes3Folders();
         Pes3Log.SetPath(Paths.LogPath);
+        Cache.EnsureLibraryReady();
     }
 
     public void SaveConfig() => Config.Save(ConfigPath);

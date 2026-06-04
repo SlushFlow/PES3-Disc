@@ -96,6 +96,8 @@ public partial class MainWindow : Window
         _scanInProgress = true;
         try
         {
+            App.Controller.CleanupEjectedVolumes();
+
             StatusBanner.Text = "Scanning optical drives…";
             DiscListPanel.Children.Clear();
 

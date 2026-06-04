@@ -11,7 +11,23 @@ public partial class SetupWindow : Window
     {
         InitializeComponent();
         var c = App.Services.Config;
-        DeleteCacheCheck.IsChecked = c.DeleteCacheAfterPlay;
+        StorageModeCombo.ItemsSource = new[]
+        {
+            "Smart hybrid (recommended)",
+            "Ephemeral session (delete after play)",
+        };
+        StorageModeCombo.SelectedIndex = Pes3StorageModeResolver.Resolve(c) == Pes3StorageMode.EphemeralSession ? 1 : 0;
+        StorageModeHint.Text = Pes3StorageModeResolver.Describe(
+            StorageModeCombo.SelectedIndex == 1
+                ? Pes3StorageMode.EphemeralSession
+                : Pes3StorageMode.SmartHybrid);
+        StorageModeCombo.SelectionChanged += (_, _) =>
+        {
+            StorageModeHint.Text = Pes3StorageModeResolver.Describe(
+                StorageModeCombo.SelectedIndex == 1
+                    ? Pes3StorageMode.EphemeralSession
+                    : Pes3StorageMode.SmartHybrid);
+        };
         RetailCheck.IsChecked = c.EnableRetailDecrypt;
         var detected = App.Services.Launcher.FindRpcs3();
         if (detected is not null)
@@ -51,7 +67,11 @@ public partial class SetupWindow : Window
 
         var c = App.Services.Config;
         c.Rpcs3Path = path;
-        c.DeleteCacheAfterPlay = DeleteCacheCheck.IsChecked == true;
+        Pes3StorageModeResolver.Apply(
+            c,
+            StorageModeCombo.SelectedIndex == 1
+                ? Pes3StorageMode.EphemeralSession
+                : Pes3StorageMode.SmartHybrid);
         c.EnableRetailDecrypt = RetailCheck.IsChecked == true;
         c.SetupComplete = true;
         LegalTerms.RecordAcceptance(c);

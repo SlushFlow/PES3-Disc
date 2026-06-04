@@ -33,10 +33,18 @@ public sealed class Pes3AppController
     {
         get
         {
-            var cacheNote = _svc.Config.DeleteCacheAfterPlay
-                ? "Session mode: full decrypt every time you play (slow)."
-                : $"Persistent cache: {_svc.Paths.CacheRoot} — re-insert disc plays in seconds after first decrypt.";
-            return cacheNote;
+            var mode = Pes3StorageModeResolver.Resolve(_svc.Config);
+            return mode switch
+            {
+                Pes3StorageMode.EphemeralSession =>
+                    "Session storage: temp data removed when RPCS3 exits (saves disk, slow repeat).",
+                Pes3StorageMode.DiscDirect =>
+                    "Disc storage: DIY plays from the disc with no copy (keep disc inserted).",
+                Pes3StorageMode.PersistentLibrary =>
+                    $"Library: {_svc.Paths.LibraryRoot} — full titles kept for instant replay.",
+                _ =>
+                    "Smart: disc-assisted sessions (small SSD + disc); cleaned up on RPCS3 exit or disc eject.",
+            };
         }
     }
 
@@ -69,17 +77,23 @@ public sealed class Pes3AppController
             if (status.Kind == DiscVolumeKind.Playable && status.Game is not null)
             {
                 detail = cached is not null
-                    ? "Cached copy on disk — instant play from SSD."
-                    : "Will copy to PES3 cache for the same fast loading as decrypted retail games.";
+                    ? "Library hit — instant play from SSD."
+                    : Pes3StorageModeResolver.Resolve(_svc.Config) == Pes3StorageMode.SmartHybrid
+                        ? "Disc-assisted: small SSD session, bulk read from disc."
+                        : Pes3StorageModeResolver.AllowsDiscDirect(_svc.Config)
+                            ? "Play from disc (no copy) or ephemeral session."
+                            : "Will stage into the PES3 library for fast RPCS3 loading.";
             }
             else if (status.Kind is DiscVolumeKind.EncryptedRetail or DiscVolumeKind.IncompleteBurn)
             {
                 var retailCached = _svc.Cache.TryGetCached(drive.Id, null, null)
                     ?? _svc.Cache.TryGetSoleIndexedRetail();
                 if (retailCached is not null)
-                    detail = "Decrypted copy on disk — use Play from cache (no re-decrypt).";
-                else if (!_svc.Config.DeleteCacheAfterPlay)
-                    detail = "First decrypt takes 30–90+ min; keep cache enabled so the next insert is instant.";
+                    detail = "Title in library — Play from library (no re-decrypt).";
+                else if (Pes3StorageModeResolver.KeepsPersistentLibrary(_svc.Config))
+                    detail = "First decrypt takes 30–90+ min; library mode keeps the next insert instant.";
+                else
+                    detail = "Decrypt once per session (~30–90+ min); session removed when RPCS3 exits or disc ejects.";
             }
 
             detail += $"  ({drive.Root})";
@@ -95,7 +109,7 @@ public sealed class Pes3AppController
                 IsDismissed = _prompted.Contains(drive.Id),
                 CanPlay = status.Kind == DiscVolumeKind.Playable && status.Game is not null,
                 CanPlayFromCache = retailCache is not null,
-                PlayButtonText = cached is not null ? "Play from cache" : "Play",
+                PlayButtonText = cached is not null ? "Play from library" : "Play",
                 CanDecrypt = status.Kind is DiscVolumeKind.EncryptedRetail or DiscVolumeKind.IncompleteBurn
                     && _svc.Config.EnableRetailDecrypt,
                 CanDecryptAgain = retailCache is not null,
@@ -172,19 +186,12 @@ public sealed class Pes3AppController
             // ignore
         }
 
-        string outputDir;
-        List<string> cleanup;
-        if (_svc.Config.DeleteCacheAfterPlay)
-        {
-            outputDir = _svc.Paths.NewSessionDir();
-            cleanup = new List<string> { outputDir };
-        }
-        else
-        {
-            outputDir = _svc.Cache.ResolveRetailOutputDir(probe?.ProductCode);
-            Directory.CreateDirectory(outputDir);
-            cleanup = new List<string>();
-        }
+        var mode = Pes3StorageModeResolver.Resolve(_svc.Config);
+        var outputDir = _svc.Cache.ResolveRetailOutputDir(probe?.ProductCode);
+        Directory.CreateDirectory(outputDir);
+        var cleanup = mode == Pes3StorageMode.PersistentLibrary
+            ? new List<string>()
+            : new List<string> { outputDir };
 
         var result = await ui.ShowDecryptDialogAsync(
             drive,
@@ -193,7 +200,7 @@ public sealed class Pes3AppController
 
         if (result is not { Success: true })
         {
-            if (_svc.Config.DeleteCacheAfterPlay && Directory.Exists(outputDir))
+            if (mode != Pes3StorageMode.PersistentLibrary && Directory.Exists(outputDir))
             {
                 try { Directory.Delete(outputDir, true); } catch { /* ignore */ }
             }
@@ -203,7 +210,25 @@ public sealed class Pes3AppController
         }
 
         var session = _svc.Cache.FinalizeRetailDecrypt(result, outputDir, cleanup);
+        session = new PlaySession
+        {
+            EbootPath = session.EbootPath,
+            CleanupDirs = session.CleanupDirs,
+            FromCache = session.FromCache,
+            CacheDir = session.CacheDir,
+            Tier = session.Tier,
+            VolumeId = drive.Id,
+            DiscRoot = drive.Root,
+            OverlayStats = session.OverlayStats,
+        };
         return await LaunchSessionAsync(session, ui, ct);
+    }
+
+    public void CleanupEjectedVolumes()
+    {
+        if (!_svc.Config.CleanupSessionsOnDiscEject)
+            return;
+        _svc.SessionRegistry.CleanupEjectedVolumes();
     }
 
     private async Task<bool> EnsureLegalTermsAsync(IPes3UiHost ui, CancellationToken ct)
@@ -228,6 +253,10 @@ public sealed class Pes3AppController
             ui.ShowWarning("Could not start RPCS3. Check Settings.");
             return null;
         }
+
+        if (session.CleanupDirs.Count > 0 && !string.IsNullOrWhiteSpace(session.VolumeId))
+            _svc.SessionRegistry.Register(session);
+
         return session.EbootPath;
     }
 
