@@ -145,11 +145,13 @@ Invoke-GhApi -Method PATCH -Path "repos/$Repo" -Body @{
     web_commit_signoff_required  = $false
 } | Out-Null
 
-# --- Actions: only workflows in this repo; pin action SHAs; read-only default token ---
+# --- Actions: repo workflows + GitHub-owned actions (checkout, setup-dotnet); read-only token ---
 Invoke-GhApi -Method PUT -Path "repos/$Repo/actions/permissions" -Body @{
-    enabled              = $true
-    allowed_actions      = 'local_only'
-    sha_pinning_required = $true
+    enabled               = $true
+    allowed_actions       = 'selected'
+    github_owned_allowed  = $true
+    verified_allowed      = $true
+    sha_pinning_required  = $true
 } | Out-Null
 
 Invoke-GhApi -Method PUT -Path "repos/$Repo/actions/permissions/workflow" -Body @{
@@ -168,7 +170,7 @@ Set-MainBranchProtection -Repo $Repo -Branch $Branch
 Write-Host ''
 Write-Host 'Done. Summary of protections applied:' -ForegroundColor Green
 Write-Host '  - main: PR required, 1 approval, CODEOWNER review, no force-push/delete, admins included'
-Write-Host '  - Actions: local workflows only, SHA pinning, read-only GITHUB_TOKEN'
+Write-Host '  - Actions: local workflows + GitHub-owned actions, SHA pinning, read-only GITHUB_TOKEN'
 if ($forkApprovalOk) {
     Write-Host '  - Fork PR workflows: require approval for all external contributors'
 }
