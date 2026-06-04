@@ -3,9 +3,6 @@ name: Break test
 # Manual or push-triggered adversarial test run (DIY + retail fixtures).
 # No pull_request trigger — fork PRs cannot run this workflow (see Protect-GitHubRepo.ps1).
 
-permissions:
-  contents: read
-
 on:
   workflow_dispatch:
   push:
@@ -15,6 +12,8 @@ on:
       - 'Test-PES3-Break.ps1'
       - 'Test-PES3-Integration.ps1'
       - 'Test-Ps3DiscDetection.ps1'
+      - 'Ps3DiscRun.ps1'
+      - 'DiscRun.ps1'
       - 'scripts/**'
       - 'tests/**'
       - 'src/**'
@@ -22,10 +21,16 @@ on:
       - 'test-fixtures/**'
       - 'Dockerfile'
 
+concurrency:
+  group: break-test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   break-windows:
     runs-on: windows-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -76,6 +81,9 @@ jobs:
 
   break-linux:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -114,6 +122,9 @@ jobs:
 
       - name: Core tests - GameCacheServiceTests
         run: dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~GameCacheServiceTests"
+
+      - name: Core tests - Pes3StorageMode and overlay
+        run: dotnet test tests/PES3-Disc.Core.Tests/PES3-Disc.Core.Tests.csproj -c Release --no-build -v n --filter "FullyQualifiedName~Pes3StorageModeTests|FullyQualifiedName~SmartHybrid|FullyQualifiedName~PlaySessionRegistry|FullyQualifiedName~FinalizeRetailDecrypt"
 
       - name: Build + run API tests (exclude rate limit)
         run: |

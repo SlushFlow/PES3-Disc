@@ -247,15 +247,12 @@ public sealed class Pes3AppController
 
     private async Task<string?> LaunchSessionAsync(PlaySession session, IPes3UiHost ui, CancellationToken ct)
     {
-        var proc = await _svc.Launcher.LaunchGameAsync(session.EbootPath, session.CleanupDirs.ToList(), ct);
+        var proc = await _svc.Launcher.LaunchSessionAsync(session, ct).ConfigureAwait(false);
         if (proc is null)
         {
             ui.ShowWarning("Could not start RPCS3. Check Settings.");
             return null;
         }
-
-        if (session.CleanupDirs.Count > 0 && !string.IsNullOrWhiteSpace(session.VolumeId))
-            _svc.SessionRegistry.Register(session);
 
         return session.EbootPath;
     }

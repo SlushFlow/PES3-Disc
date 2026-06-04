@@ -398,14 +398,12 @@ public static class CliApp
 
     private static async Task LaunchSessionAsync(PlaySession session, CancellationToken ct)
     {
-        var proc = await _svc.Launcher.LaunchGameAsync(session.EbootPath, session.CleanupDirs.ToList(), ct);
+        var proc = await _svc.Launcher.LaunchSessionAsync(session, ct).ConfigureAwait(false);
         if (proc is null)
         {
             Console.Error.WriteLine("Could not start RPCS3. Run: pes3-disc setup /path/to/rpcs3");
             return;
         }
-        if (session.CleanupDirs.Count > 0 && !string.IsNullOrWhiteSpace(session.VolumeId))
-            _svc.SessionRegistry.Register(session);
 
         if (session.OverlayStats is { } stats)
             Console.WriteLine($"Disc-assisted: {stats.Summary}");

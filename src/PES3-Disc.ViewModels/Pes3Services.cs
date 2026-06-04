@@ -28,7 +28,7 @@ public sealed class Pes3Services
             Paths = paths,
             Cache = new GameCacheService(config, paths),
             Backup = backup,
-            Launcher = new Rpcs3Launcher(config, paths, backup),
+            Launcher = new Rpcs3Launcher(config, paths, backup, registry),
             Decryptor = new DiscDecryptor(config),
             Prompted = new PromptedStore(paths),
             SessionRegistry = registry,
@@ -40,6 +40,8 @@ public sealed class Pes3Services
         Paths.EnsurePes3Folders();
         Pes3Log.SetPath(Paths.LogPath);
         Cache.EnsureLibraryReady();
+        if (Config.CleanupSessionsOnDiscEject)
+            SessionRegistry.ReconcileOnStartup();
     }
 
     public void SaveConfig()
@@ -47,11 +49,11 @@ public sealed class Pes3Services
         Config.Save(ConfigPath);
         Paths = new Pes3Paths(Config);
         Backup = new Pes3BackupService(Config, Paths);
+        SessionRegistry = new PlaySessionRegistry(Paths);
         Cache = new GameCacheService(Config, Paths);
-        Launcher = new Rpcs3Launcher(Config, Paths, Backup);
+        Launcher = new Rpcs3Launcher(Config, Paths, Backup, SessionRegistry);
         Decryptor = new DiscDecryptor(Config);
         Prompted = new PromptedStore(Paths);
-        SessionRegistry = new PlaySessionRegistry(Paths);
         Initialize();
     }
 }

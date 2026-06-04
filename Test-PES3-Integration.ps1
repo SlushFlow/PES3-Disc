@@ -148,6 +148,40 @@ $logAfter = Get-Content -LiteralPath $integrationLog -Raw -Encoding UTF8
 $foundCount = ([regex]::Matches($logAfter, 'Found PS3 game')).Count
 Assert-True 'Second scan does not re-detect DIY' ($foundCount -eq 1) "Found PS3 game count=$foundCount"
 
+Write-Phase 'SmartHybrid overlay (DIY fixture)'
+$overlayConfig = Join-Path $env:TEMP "pes3-overlay-config-$([Guid]::NewGuid().ToString('N').Substring(0, 8)).json"
+@{
+    Rpcs3Path            = 'C:\Nonexistent\RPCS3\rpcs3.exe'
+    ScanDelaySeconds     = 0
+    StorageMode          = 'SmartHybrid'
+    DeleteCacheAfterPlay = $false
+    DumpCachePath        = (Join-Path $env:TEMP "pes3-overlay-cache-$([Guid]::NewGuid().ToString('N').Substring(0, 8))")
+} | ConvertTo-Json | Set-Content -LiteralPath $overlayConfig -Encoding UTF8
+$Script:ConfigPath = $overlayConfig
+Clear-ConfigCache
+$diyDrive = Get-TestVolumeDrives -Roots @($diyRoot) | Select-Object -First 1
+$diyGame = Find-Ps3GameOnDrive -DriveRoot ($diyRoot + '\')
+$prepared = $null
+try {
+    $prepared = Prepare-GamePlayCache -Drive $diyDrive -Game $diyGame
+    Assert-True 'Overlay session dir created' ($prepared.EphemeralCleanupDirs.Count -ge 1)
+    $overlayDir = $prepared.EphemeralCleanupDirs[0]
+    Assert-True 'Overlay EBOOT exists' (Test-Path -LiteralPath $prepared.Eboot)
+    Assert-True 'Overlay log mentions disc-assisted' ((Get-Content -LiteralPath $integrationLog -Raw -ErrorAction SilentlyContinue) -match 'disc-assisted|overlay')
+}
+catch {
+    Assert-True 'Prepare-GamePlayCache SmartHybrid' $false $_.Exception.Message
+}
+finally {
+    if ($prepared -and $prepared.EphemeralCleanupDirs) {
+        foreach ($d in @($prepared.EphemeralCleanupDirs)) {
+            if ($d -and (Test-Path -LiteralPath $d)) {
+                Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}
+
 Write-Phase 'RemoveOnly resets test volume state'
 Update-DiscScan -RemoveOnly -ClearTestVolumes
 Update-DiscScan -DelaySeconds 0 -TestVolumeRoots @($diyRoot) -NonInteractive
