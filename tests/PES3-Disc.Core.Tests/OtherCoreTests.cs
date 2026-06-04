@@ -194,6 +194,7 @@ public class GameCacheServiceTests : IDisposable
 
         var config = new Pes3Config
         {
+            StorageMode = "PersistentLibrary",
             DeleteCacheAfterPlay = false,
             DumpCachePath = Path.Combine(_tempRoot, "cache"),
         };
@@ -209,6 +210,7 @@ public class GameCacheServiceTests : IDisposable
 
         var session1 = await cache.PrepareDiyPlayAsync(drive, game);
         Assert.False(session1.FromCache);
+        Assert.Equal(Pes3LibraryTier.PersistentLibrary, session1.Tier);
         Assert.True(File.Exists(session1.EbootPath));
 
         var session2 = await cache.PrepareDiyPlayAsync(drive, game);
@@ -222,5 +224,155 @@ public class GameCacheServiceTests : IDisposable
         var paths = new Pes3Paths(config);
         var cache = new GameCacheService(config, paths);
         Assert.Null(cache.TryGetCached("vol", "BLUS99991", null));
+    }
+
+    [Fact]
+    public async Task SmartHybrid_diy_uses_disc_assisted_overlay()
+    {
+        var gameRoot = Path.Combine(_tempRoot, "disc");
+        Ps3DiscFixtureBuilder.WriteDiyDisc(gameRoot);
+        var large = Path.Combine(gameRoot, "PS3_GAME", "USRDIR", "data", "big.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(large)!);
+        File.WriteAllBytes(large, new byte[512 * 1024]);
+
+        var root = gameRoot + Path.DirectorySeparatorChar;
+        var status = DiscDetector.GetVolumeStatus(root);
+        var game = status.Game!;
+
+        var config = new Pes3Config
+        {
+            StorageMode = "SmartHybrid",
+            DeleteCacheAfterPlay = false,
+            DumpCachePath = Path.Combine(_tempRoot, "cache"),
+            Rpcs3Path = Path.Combine(_tempRoot, "rpcs3.exe"),
+        };
+        File.WriteAllText(config.Rpcs3Path, "");
+        var paths = new Pes3Paths(config);
+        var cache = new GameCacheService(config, paths);
+        var drive = new OpticalDrive { Root = root, Id = "VOL|smart", Letter = 'S' };
+
+        var session = await cache.PrepareDiyPlayAsync(drive, game);
+        Assert.Equal(Pes3LibraryTier.DiscAssistedOverlay, session.Tier);
+        Assert.NotEqual(game.EbootPath, session.EbootPath);
+        Assert.Single(session.CleanupDirs);
+        Assert.True(File.Exists(session.EbootPath));
+        Assert.True(Directory.Exists(session.CleanupDirs[0]));
+
+        var overlayEboot = session.EbootPath;
+        var linkedBig = Path.Combine(session.CleanupDirs[0], "PS3_GAME", "USRDIR", "data", "big.bin");
+        if (File.Exists(linkedBig))
+        {
+            try
+            {
+                var target = File.ResolveLinkTarget(linkedBig, returnFinalTarget: true);
+                Assert.Equal(Path.GetFullPath(large), Path.GetFullPath(target?.FullName ?? large));
+            }
+            catch
+            {
+                Assert.True(new FileInfo(linkedBig).Length >= 512 * 1024);
+            }
+        }
+    }
+
+    [Fact]
+    public void PlaySessionRegistry_cleans_up_on_eject()
+    {
+        var sessionDir = Path.Combine(_tempRoot, "overlay-session");
+        Directory.CreateDirectory(sessionDir);
+        File.WriteAllText(Path.Combine(sessionDir, "marker.txt"), "x");
+
+        var config = new Pes3Config { DumpCachePath = Path.Combine(_tempRoot, "cache") };
+        var paths = new Pes3Paths(config);
+        var registry = new PlaySessionRegistry(paths);
+
+        registry.Register(new PlaySession
+        {
+            EbootPath = Path.Combine(sessionDir, "PS3_GAME", "USRDIR", "EBOOT.BIN"),
+            CleanupDirs = new[] { sessionDir },
+            VolumeId = "GONE|eject-test",
+            DiscRoot = "Z:\\",
+        });
+
+        registry.UnregisterVolume("GONE|eject-test");
+        Assert.False(Directory.Exists(sessionDir));
+    }
+
+    [Fact]
+    public void FinalizeRetailDecrypt_smart_hybrid_stays_ephemeral()
+    {
+        var config = new Pes3Config
+        {
+            StorageMode = "SmartHybrid",
+            DumpCachePath = Path.Combine(_tempRoot, "cache"),
+        };
+        var paths = new Pes3Paths(config);
+        var cache = new GameCacheService(config, paths);
+        var sessionDir = Path.Combine(_tempRoot, "retail-session");
+        Directory.CreateDirectory(Path.Combine(sessionDir, "PS3_GAME", "USRDIR"));
+        var eboot = Path.Combine(sessionDir, "PS3_GAME", "USRDIR", "EBOOT.BIN");
+        File.WriteAllBytes(eboot, new byte[] { 0x7F, 0x45, 0x4C, 0x46, 0x02, 0x01, 0x01 });
+
+        var result = new DecryptResult
+        {
+            Success = true,
+            Eboot = eboot,
+            GameRoot = sessionDir,
+            ProductCode = "BLUS99999",
+            Title = "Test",
+        };
+        var cleanup = new List<string> { sessionDir };
+        var session = cache.FinalizeRetailDecrypt(result, sessionDir, cleanup);
+
+        Assert.Equal(Pes3LibraryTier.EphemeralSession, session.Tier);
+        Assert.Contains(sessionDir, session.CleanupDirs);
+        Assert.False(Directory.Exists(paths.TitleInstallDir("BLUS99999")));
+    }
+
+    [Fact]
+    public void Migrator_moves_legacy_cache_folder_to_library_titles()
+    {
+        var cacheRoot = Path.Combine(_tempRoot, "cache");
+        var legacyTitle = Path.Combine(cacheRoot, "BLUS12345");
+        Directory.CreateDirectory(legacyTitle);
+        File.WriteAllText(Path.Combine(legacyTitle, "marker.txt"), "x");
+
+        var config = new Pes3Config { DumpCachePath = cacheRoot };
+        var paths = new Pes3Paths(config);
+        Pes3LibraryMigrator.MigrateIfNeeded(paths);
+
+        var target = paths.TitleInstallDir("BLUS12345");
+        Assert.True(Directory.Exists(target));
+        Assert.True(File.Exists(Path.Combine(target, "marker.txt")));
+        Assert.False(Directory.Exists(legacyTitle));
+    }
+}
+
+public class Pes3StorageModeTests
+{
+    [Theory]
+    [InlineData("SmartHybrid", Pes3StorageMode.SmartHybrid)]
+    [InlineData("library", Pes3StorageMode.PersistentLibrary)]
+    [InlineData("session", Pes3StorageMode.EphemeralSession)]
+    [InlineData("disc-direct", Pes3StorageMode.DiscDirect)]
+    public void TryParse_modes(string input, Pes3StorageMode expected)
+    {
+        Assert.True(Pes3StorageModeResolver.TryParse(input, out var mode));
+        Assert.Equal(expected, mode);
+    }
+
+    [Fact]
+    public void Legacy_delete_flag_maps_to_session()
+    {
+        var config = new Pes3Config { DeleteCacheAfterPlay = true };
+        Assert.Equal(Pes3StorageMode.EphemeralSession, Pes3StorageModeResolver.Resolve(config));
+    }
+
+    [Fact]
+    public void Apply_syncs_legacy_delete_flag()
+    {
+        var config = new Pes3Config();
+        Pes3StorageModeResolver.Apply(config, Pes3StorageMode.EphemeralSession);
+        Assert.True(config.DeleteCacheAfterPlay);
+        Assert.Equal("EphemeralSession", config.StorageMode);
     }
 }

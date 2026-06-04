@@ -36,26 +36,28 @@ RPCS3\
     state\prompted-volumes.json
 ```
 
-## How it works (default: ephemeral cache)
+## How it works (Smart hybrid default)
 
 1. You insert an official disc → PES3-Disc detects **EncryptedRetail**.
 2. You confirm **Decrypt and play**.
-3. `pes3-disc-dump.exe` decrypts into **`PES3\temp\session-…`** (or `PES3\cache` if you keep cache).
+3. `pes3-disc-dump.exe` decrypts into **`PES3\temp\session-…`** (a session tree, not a permanent library dump).
 4. RPCS3 launches with the decrypted `EBOOT.BIN`.
-5. When you **close RPCS3**, PES3-Disc deletes the decrypt folder automatically.
+5. When you **close RPCS3** or **eject the disc**, PES3-Disc deletes the session folder.
 6. **Save data** stays in `dev_hdd0` — only the ripped game files are removed.
+
+Encrypted files on the Blu-ray **cannot** be read by RPCS3 directly; the disc does not replace decrypt output for retail games.
 
 ## Avoid waiting 1–2 hours on every insert (important)
 
-Retail decrypt is **slow once** (often **30–90+ minutes**, drive-limited). It should **not** run on every disc insert.
+Retail decrypt is **slow once** (often **30–90+ minutes**, drive-limited). It should **not** run on every disc insert if you want fast replay.
 
-1. In **Settings**, turn **off** “Delete cache when RPCS3 exits” (this is the default for new installs).
-2. Use an **SSD** for the PES3 cache folder (`DumpCachePath` or `RPCS3\PES3\cache`).
-3. After the **first** successful decrypt, re-insert the same disc and choose **Play from cache** — launch is typically **seconds**, not hours.
+1. In **Settings**, choose **Persistent library** (keeps full decrypt under `PES3/library/titles/`).
+2. Use an **SSD** for the PES3 folder (`DumpCachePath` or `RPCS3\PES3\`).
+3. After the **first** successful decrypt, re-insert the same disc and choose **Play from library** — launch is typically **seconds**, not hours.
 
-PES3-Disc probes the disc product code (fast), looks up the cached folder by product ID, and skips the dump when a valid decrypt is already on disk.
+**Smart hybrid** (default) trades disk space for convenience: each play decrypts to a temp session unless you already have a library copy from persistent mode.
 
-Session mode (`DeleteCacheAfterPlay: true`) deletes the decrypt when RPCS3 closes and forces a full re-dump next time — only use that if you are low on disk space.
+**Ephemeral session** always deletes the decrypt when RPCS3 closes (maximum disk savings, slowest repeat).
 
 ## Maximum speed (what PES3-Disc can do)
 

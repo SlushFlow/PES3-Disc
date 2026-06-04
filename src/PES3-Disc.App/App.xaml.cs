@@ -62,6 +62,7 @@ public sealed class AppServices
     {
         Paths.EnsurePes3Folders();
         Pes3Log.SetPath(Paths.LogPath);
+        Cache.EnsureLibraryReady();
     }
 
     public void SaveConfig()

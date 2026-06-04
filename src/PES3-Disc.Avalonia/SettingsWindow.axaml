@@ -12,8 +12,13 @@
       <TextBlock Text="RPCS3 path" Classes="muted"/>
       <TextBox x:Name="Rpcs3Box"/>
       <Button Classes="secondary" Content="Browse…" Click="Browse_Click" HorizontalAlignment="Left"/>
-      <CheckBox x:Name="DeleteCacheCheck" Content="Delete cache when RPCS3 exits" Foreground="#E8EDF4"/>
-      <TextBlock Text="Custom cache folder (optional)" Classes="muted"/>
+      <TextBlock Text="Storage mode" Classes="muted"/>
+      <ComboBox x:Name="StorageModeCombo"/>
+      <TextBlock x:Name="StorageModeHint" Classes="muted" TextWrapping="Wrap"/>
+      <CheckBox x:Name="EjectCleanupCheck" Content="Remove sessions when disc is ejected" Foreground="#E8EDF4"/>
+      <TextBlock Text="Max local SSD for disc-assisted overlay (MB)" Classes="muted"/>
+      <TextBox x:Name="OverlayMbBox" Width="100" HorizontalAlignment="Left"/>
+      <TextBlock Text="Custom library/cache folder (optional)" Classes="muted"/>
       <TextBox x:Name="CachePathBox"/>
       <CheckBox x:Name="RetailCheck" Content="Offer retail disc decryption" Foreground="#E8EDF4"/>
       <TextBlock Text="Linux dump tool path (optional)" Classes="muted"/>

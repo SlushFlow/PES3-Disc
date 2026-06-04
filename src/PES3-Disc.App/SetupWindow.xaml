@@ -40,10 +40,9 @@
     <Border Grid.Row="2" Style="{StaticResource CardBorder}" VerticalAlignment="Top">
       <StackPanel>
         <TextBlock Text="Options" FontWeight="SemiBold" Margin="0,0,0,12"/>
-        <CheckBox x:Name="DeleteCacheCheck" Content="Delete decrypted game when RPCS3 closes (re-decrypt every time — slow)"
-                  IsChecked="False" Foreground="{StaticResource TextBrush}" Margin="0,0,0,8"/>
-        <TextBlock Text="Leave unchecked to keep decrypt on SSD. First decrypt takes 30–90+ min; later inserts play in seconds."
-                   Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
+        <TextBlock Text="Storage mode" Margin="0,0,0,4" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+        <ComboBox x:Name="StorageModeCombo" Padding="8,6" Background="#0F1419" Foreground="{StaticResource TextBrush}" Margin="0,0,0,8"/>
+        <TextBlock x:Name="StorageModeHint" Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
         <CheckBox x:Name="StartupCheck" Content="Start PES3-Disc when Windows starts"
                   Foreground="{StaticResource TextBrush}" Margin="0,0,0,8"/>
         <CheckBox x:Name="BackupsCheck" Content="Backup game files before deleting cache"

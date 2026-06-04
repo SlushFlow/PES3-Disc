@@ -76,11 +76,9 @@ public partial class MainWindow : Window
     {
         var rpcs3 = App.Services.Config.Rpcs3Path;
         var pes3 = App.Services.Paths.Pes3Root ?? "(configure RPCS3)";
-        var cacheNote = App.Services.Config.DeleteCacheAfterPlay
-            ? "Session mode: full decrypt every play (slow)."
-            : $"Persistent cache: {App.Services.Paths.CacheRoot} — after first decrypt, re-insert is instant.";
+        var mode = Pes3StorageModeResolver.Resolve(App.Services.Config);
         SubtitleText.Text = $"RPCS3: {Path.GetFileName(rpcs3)}  •  PES3: {pes3}";
-        FooterText.Text = $"DIY and retail discs use the same PES3 cache for fast RPCS3 loading. {cacheNote}.";
+        FooterText.Text = $"Library: {App.Services.Paths.LibraryRoot}. {Pes3StorageModeResolver.Describe(mode)}";
     }
 
     private async void Scan_Click(object sender, RoutedEventArgs e) => await RunScanAsync();
@@ -104,6 +102,9 @@ public partial class MainWindow : Window
         _scanInProgress = true;
         try
         {
+            if (App.Services.Config.CleanupSessionsOnDiscEject)
+                App.Services.SessionRegistry.CleanupEjectedVolumes();
+
             StatusBanner.Text = "Scanning optical drives…";
             DiscListPanel.Children.Clear();
 
@@ -166,17 +167,23 @@ public partial class MainWindow : Window
         {
             var cached = App.Services.Cache.TryGetCached(drive.Id, status.Game.TitleId, null);
             detail = cached is not null
-                ? "Cached copy on disk — instant play from SSD."
-                : "Will copy to PES3 cache for the same fast loading as decrypted retail games.";
+                ? "Library hit — instant play from SSD."
+                : Pes3StorageModeResolver.Resolve(App.Services.Config) == Pes3StorageMode.SmartHybrid
+                    ? "Disc-assisted: small SSD session, bulk read from disc."
+                    : Pes3StorageModeResolver.AllowsDiscDirect(App.Services.Config)
+                        ? "Play from disc (no copy) or ephemeral session."
+                        : "Will stage into the PES3 library for fast RPCS3 loading.";
         }
         else if (status.Kind is DiscVolumeKind.EncryptedRetail or DiscVolumeKind.IncompleteBurn)
         {
             var cached = App.Services.Cache.TryGetCached(drive.Id, null, null)
                 ?? App.Services.Cache.TryGetSoleIndexedRetail();
             if (cached is not null)
-                detail = "Decrypted copy on disk — use Play from cache (no re-decrypt).";
-            else if (!App.Services.Config.DeleteCacheAfterPlay)
-                detail = "First decrypt takes 30–90+ min; keep persistent cache for instant replay.";
+                detail = "Title in library — Play from library (no re-decrypt).";
+            else if (Pes3StorageModeResolver.KeepsPersistentLibrary(App.Services.Config))
+                detail = "First decrypt takes 30–90+ min; library mode keeps the next insert instant.";
+            else
+                detail = "Decrypt per session; removed when RPCS3 exits or disc ejects.";
         }
 
         stack.Children.Add(new TextBlock
@@ -195,7 +202,7 @@ public partial class MainWindow : Window
             var cached = App.Services.Cache.TryGetCached(drive.Id, status.Game.TitleId, null);
             var play = new Button
             {
-                Content = cached is not null ? "Play from cache" : "Play",
+                Content = cached is not null ? "Play from library" : "Play",
                 Style = (Style)FindResource("PrimaryButton"),
                 Margin = new Thickness(0, 0, 8, 0),
             };
@@ -212,7 +219,7 @@ public partial class MainWindow : Window
                 {
                     var playCache = new Button
                     {
-                        Content = "Play from cache",
+                        Content = "Play from library",
                         Style = (Style)FindResource("PrimaryButton"),
                         Margin = new Thickness(0, 0, 8, 0),
                     };
@@ -301,6 +308,13 @@ public partial class MainWindow : Window
             MessageBox.Show(this, "Could not start RPCS3. Check Settings.", "PES3-Disc", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+
+        if (session.CleanupDirs.Count > 0 && !string.IsNullOrWhiteSpace(session.VolumeId))
+            App.Services.SessionRegistry.Register(session);
+
+        if (session.OverlayStats is { } stats)
+            StatusBanner.Text = $"Disc-assisted session — {stats.Summary}";
+
         await Task.CompletedTask;
     }
 
@@ -343,25 +357,17 @@ public partial class MainWindow : Window
             // ignore
         }
 
-        string outputDir;
-        List<string> cleanup;
-
-        if (cfg.DeleteCacheAfterPlay)
-        {
-            outputDir = paths.NewSessionDir();
-            cleanup = new List<string> { outputDir };
-        }
-        else
-        {
-            outputDir = cache.ResolveRetailOutputDir(probe?.ProductCode);
-            Directory.CreateDirectory(outputDir);
-            cleanup = new List<string>();
-        }
+        var mode = Pes3StorageModeResolver.Resolve(cfg);
+        var outputDir = cache.ResolveRetailOutputDir(probe?.ProductCode);
+        Directory.CreateDirectory(outputDir);
+        var cleanup = mode == Pes3StorageMode.PersistentLibrary
+            ? new List<string>()
+            : new List<string> { outputDir };
 
         var dlg = new DecryptWindow(drive, outputDir) { Owner = this };
         if (dlg.ShowDialog() != true || dlg.Result is not { Success: true } result)
         {
-            if (cfg.DeleteCacheAfterPlay && Directory.Exists(outputDir))
+            if (mode != Pes3StorageMode.PersistentLibrary && Directory.Exists(outputDir))
             {
                 try { Directory.Delete(outputDir, true); } catch { /* ignore */ }
             }
@@ -372,6 +378,16 @@ public partial class MainWindow : Window
         }
 
         var session = cache.FinalizeRetailDecrypt(result, outputDir, cleanup);
+        session = new PlaySession
+        {
+            EbootPath = session.EbootPath,
+            CleanupDirs = session.CleanupDirs,
+            FromCache = session.FromCache,
+            CacheDir = session.CacheDir,
+            Tier = session.Tier,
+            VolumeId = drive.Id,
+            DiscRoot = drive.Root,
+        };
         await LaunchSessionAsync(session, result.Title ?? result.ProductCode);
     }
 }

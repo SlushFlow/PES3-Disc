@@ -109,13 +109,13 @@ In the app **Settings**, enable run at startup — or use the installer’s star
 ## How it works (simple)
 
 1. PES3-Disc detects a PS3 layout on your disc or mount.
-2. For **DIY** discs, it copies game files to a **cache folder** on your SSD (faster than reading the optical drive during play).
-3. For **retail** discs, it **decrypts** into the same cache layout (one-time per disc unless you keep persistent cache).
-4. It starts **RPCS3** with the cached `EBOOT.BIN`.
+2. For **DIY** discs in **Smart hybrid** (default), it builds a small **disc-assisted session** on SSD (boot files + links) and reads bulk data from the disc while you play.
+3. For **retail** discs, it **decrypts** into a temp session (Smart hybrid) or the **library** if you chose persistent storage.
+4. It starts **RPCS3** with the prepared `EBOOT.BIN`. Session files are removed when RPCS3 exits or you eject the disc.
 
-By default, the cache is **removed when you close RPCS3** (saves in RPCS3’s `dev_hdd0` are kept). You can turn on **persistent cache** in Settings to skip re-copy or re-decrypt next time.
+**Storage modes** in Settings: smart hybrid (default), full library, ephemeral session, or disc-direct (DIY, zero local copy). See [docs/PES3-LIBRARY.md](docs/PES3-LIBRARY.md).
 
-Cache and logs live under **`RPCS3\PES3\`** next to your RPCS3 install (or a path you choose in Settings).
+Data lives under **`RPCS3\PES3\`** (temp overlays, optional library, logs). Legacy `cache` folders migrate to `library/titles` when using persistent library.
 
 ---
 
@@ -133,8 +133,8 @@ In RPCS3:
 | Setting | What it does |
 |---------|----------------|
 | **RPCS3 path** | Location of `rpcs3.exe` / `rpcs3` |
-| **Delete cache when RPCS3 exits** | On = temp cache each session (default). Off = keep decrypt/copy for faster replay |
-| **Cache path** | Where decrypted/copied games are stored (default: `RPCS3\PES3\cache`) |
+| **Storage mode** | Smart hybrid, persistent library, ephemeral session, or disc-direct (DIY) — see [PES3 library](docs/PES3-LIBRARY.md) |
+| **Library / cache path** | Optional override for legacy cache root; library uses `RPCS3\PES3\library` by default |
 | **Backups** | Optional snapshots of game files (and saves) before cache is cleared |
 | **Retail decrypt tool** | Path to `pes3-disc-dump.exe` (Windows) or `pes3-disc-dump-linux` |
 
@@ -178,6 +178,7 @@ Read more: [LEGAL.md](LEGAL.md) · [User legal guide](docs/USER-LEGAL-GUIDE.md) 
 | Topic | Link |
 |-------|------|
 | Desktop app details | [docs/GUI-APP.md](docs/GUI-APP.md) |
+| PES3 library & storage tiers | [docs/PES3-LIBRARY.md](docs/PES3-LIBRARY.md) |
 | DIY vs retail discs | [docs/DISC-COMPATIBILITY.md](docs/DISC-COMPATIBILITY.md) |
 | Retail decrypt | [docs/RETAIL-DECRYPT.md](docs/RETAIL-DECRYPT.md) |
 | Linux install | [docs/LINUX.md](docs/LINUX.md) |

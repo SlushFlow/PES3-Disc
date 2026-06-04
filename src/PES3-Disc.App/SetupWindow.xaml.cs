@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using Microsoft.Win32;
 using PES3Disc.Core;
 
@@ -11,13 +12,44 @@ public partial class SetupWindow : Window
         InitializeComponent();
         var cfg = App.Services.Config;
         Rpcs3PathBox.Text = cfg.Rpcs3Path;
-        DeleteCacheCheck.IsChecked = cfg.DeleteCacheAfterPlay;
+        PopulateStorageModes(Pes3StorageModeResolver.Resolve(cfg));
         BackupsCheck.IsChecked = cfg.EnableBackups;
         StartupCheck.IsChecked = cfg.RunAtStartup;
 
         var found = App.Services.Launcher.FindRpcs3();
         if (string.IsNullOrEmpty(cfg.Rpcs3Path) && found is not null)
             Rpcs3PathBox.Text = found;
+    }
+
+    private void PopulateStorageModes(Pes3StorageMode current)
+    {
+        var items = new[]
+        {
+            (Pes3StorageMode.SmartHybrid, "Smart hybrid (recommended)"),
+            (Pes3StorageMode.EphemeralSession, "Ephemeral session (delete after play)"),
+        };
+        StorageModeCombo.ItemsSource = items.Select(t => new ComboBoxItem
+        {
+            Content = t.Item2,
+            Tag = t.Item1,
+        }).ToList();
+        for (var i = 0; i < StorageModeCombo.Items.Count; i++)
+        {
+            if (StorageModeCombo.Items[i] is ComboBoxItem { Tag: Pes3StorageMode m } && m == current)
+            {
+                StorageModeCombo.SelectedIndex = i;
+                break;
+            }
+        }
+        if (StorageModeCombo.SelectedIndex < 0)
+            StorageModeCombo.SelectedIndex = 0;
+        StorageModeHint.Text = Pes3StorageModeResolver.Describe(
+            StorageModeCombo.SelectedItem is ComboBoxItem { Tag: Pes3StorageMode mode } ? mode : Pes3StorageMode.SmartHybrid);
+        StorageModeCombo.SelectionChanged += (_, _) =>
+        {
+            if (StorageModeCombo.SelectedItem is ComboBoxItem { Tag: Pes3StorageMode mode })
+                StorageModeHint.Text = Pes3StorageModeResolver.Describe(mode);
+        };
     }
 
     private void BrowseRpcs3_Click(object sender, RoutedEventArgs e)
@@ -60,7 +92,8 @@ public partial class SetupWindow : Window
 
         var cfg = App.Services.Config;
         cfg.Rpcs3Path = path;
-        cfg.DeleteCacheAfterPlay = DeleteCacheCheck.IsChecked == true;
+        if (StorageModeCombo.SelectedItem is ComboBoxItem { Tag: Pes3StorageMode mode })
+            Pes3StorageModeResolver.Apply(cfg, mode);
         cfg.EnableBackups = BackupsCheck.IsChecked == true;
         cfg.RunAtStartup = StartupCheck.IsChecked == true;
         cfg.SetupComplete = true;
