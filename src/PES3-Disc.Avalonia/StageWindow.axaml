@@ -5,7 +5,7 @@
         Width="480" Height="260"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
-        Background="#0F1419">
+        Background="#0A0E12">
   <StackPanel Margin="24" Spacing="12">
     <TextBlock x:Name="TitleText" FontSize="18" FontWeight="SemiBold" Foreground="#E8EDF4"/>
     <TextBlock x:Name="DetailText" Classes="muted" TextWrapping="Wrap"/>

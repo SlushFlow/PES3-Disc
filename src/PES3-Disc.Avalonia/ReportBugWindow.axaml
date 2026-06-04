@@ -5,7 +5,7 @@
         Width="520" Height="420"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
-        Background="#0F1419">
+        Background="#0A0E12">
   <Grid Margin="24" RowDefinitions="Auto,Auto,*,Auto,Auto">
     <TextBlock Text="Report a bug" FontSize="22" FontWeight="Bold" Foreground="#E8EDF4"/>
     <TextBlock Grid.Row="1" Text="Short title and description (sent to developers)."

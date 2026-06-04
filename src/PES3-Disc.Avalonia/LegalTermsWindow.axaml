@@ -5,12 +5,12 @@
         Width="500" Height="440"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
-        Background="#0F1419">
+        Background="#0A0E12">
   <StackPanel Margin="24" Spacing="12">
     <TextBlock Text="Before using decrypt or copy" FontSize="18" FontWeight="Bold" Foreground="#E8EDF4"/>
     <TextBlock Classes="muted" TextWrapping="Wrap"
                Text="PES3-Disc is not legal advice. You are responsible for compliance in your country."/>
-    <Border Background="#1A2332" CornerRadius="8" Padding="16">
+    <Border Background="#151C28" BorderBrush="#4A5F7A" BorderThickness="1" CornerRadius="8" Padding="16">
       <StackPanel Spacing="10">
         <CheckBox x:Name="OwnDiscCheck" Foreground="#E8EDF4"
                   Content="I own the physical PS3 disc I use with decrypt or copy features."/>

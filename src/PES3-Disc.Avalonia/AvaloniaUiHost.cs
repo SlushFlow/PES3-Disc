@@ -1,8 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Layout;
-using Avalonia.Media;
 using PES3Disc.Core;
 using PES3Disc.ViewModels;
 
@@ -35,7 +33,7 @@ public sealed class AvaloniaUiHost : IPes3UiHost
         var owner = GetOwner();
         await dlg.ShowDialog(owner);
         if (dlg.Session is null && dlg.ErrorMessage is { } err)
-            ShowWarning($"Could not prepare the game session.\n\n{err}");
+            UiDialogs.ShowWarning(owner, $"Could not prepare the game session.\n\n{err}");
         return dlg.Session;
     }
 
@@ -47,58 +45,14 @@ public sealed class AvaloniaUiHost : IPes3UiHost
         var dlg = new DecryptWindow(drive, outputDir, work);
         var owner = GetOwner();
         await dlg.ShowDialog(owner);
+        if (dlg.Result is { Success: false, ErrorMessage: { } err })
+            UiDialogs.ShowWarning(owner, err);
         return dlg.Result;
     }
 
-    public void ShowWarning(string message)
-    {
-        var owner = GetOwner();
-        var dlg = new Window
-        {
-            Title = "PES3-Disc",
-            Width = 400,
-            Height = 160,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Content = new StackPanel
-            {
-                Margin = new Thickness(20),
-                Spacing = 12,
-                Children =
-                {
-                    new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
-                    new Button { Content = "OK", HorizontalAlignment = HorizontalAlignment.Right },
-                },
-            },
-        };
-        if (dlg.Content is StackPanel sp && sp.Children[^1] is Button ok)
-            ok.Click += (_, _) => dlg.Close();
-        dlg.ShowDialog(owner);
-    }
+    public void ShowWarning(string message) => UiDialogs.ShowWarning(GetOwner(), message);
 
-    public void ShowInfo(string message)
-    {
-        var owner = GetOwner();
-        var dlg = new Window
-        {
-            Title = "PES3-Disc",
-            Width = 400,
-            Height = 160,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Content = new StackPanel
-            {
-                Margin = new Thickness(20),
-                Spacing = 12,
-                Children =
-                {
-                    new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
-                    new Button { Content = "OK", HorizontalAlignment = HorizontalAlignment.Right },
-                },
-            },
-        };
-        if (dlg.Content is StackPanel sp && sp.Children[^1] is Button ok)
-            ok.Click += (_, _) => dlg.Close();
-        dlg.ShowDialog(owner);
-    }
+    public void ShowInfo(string message) => UiDialogs.ShowInfo(GetOwner(), message);
 
     private static Window GetOwner()
     {

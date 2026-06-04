@@ -5,7 +5,7 @@
         Width="560" Height="520"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
-        Background="#0F1419">
+        Background="#0A0E12">
   <ScrollViewer>
     <StackPanel Margin="24" Spacing="12">
       <TextBlock Text="Settings" FontSize="22" FontWeight="Bold" Foreground="#E8EDF4"/>

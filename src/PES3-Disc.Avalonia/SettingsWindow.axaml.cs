@@ -74,7 +74,7 @@ public partial class SettingsWindow : Window
         var path = Rpcs3Box.Text?.Trim() ?? "";
         if (!File.Exists(path))
         {
-            new AvaloniaUiHost().ShowWarning("Select a valid rpcs3 executable.");
+            UiDialogs.ShowWarning(this, "Select a valid rpcs3 executable.");
             return;
         }
 

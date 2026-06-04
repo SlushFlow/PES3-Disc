@@ -5,23 +5,23 @@
         Title="PES3-Disc"
         Width="720" Height="640"
         MinWidth="560" MinHeight="480"
-        Background="#0F1419">
+        Background="#0A0E12">
   <Grid Margin="20" RowDefinitions="Auto,Auto,*,Auto">
     <Grid ColumnDefinitions="*,Auto">
       <StackPanel>
-        <TextBlock Text="PES3-Disc" FontSize="28" FontWeight="Bold" Foreground="#E8EDF4"/>
+        <TextBlock Text="PES3-Disc" FontSize="28" FontWeight="Bold" Foreground="#FFFFFF"/>
         <TextBlock x:Name="SubtitleText" Classes="muted" Margin="0,4,0,0"/>
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
         <local:DevStatusBar x:Name="DevStatus"/>
-        <Button Classes="secondary" Content="Scan" Click="Scan_Click"/>
+        <Button x:Name="ScanButton" Classes="secondary" Content="Scan" Click="Scan_Click"/>
         <Button Classes="secondary" Content="Report bug" Click="ReportBug_Click"/>
         <Button Classes="secondary" Content="Settings" Click="Settings_Click"/>
       </StackPanel>
     </Grid>
 
     <Border Grid.Row="1" Classes="card" Margin="0,16,0,0" Padding="12">
-      <TextBlock x:Name="StatusBanner" TextWrapping="Wrap" Classes="muted"/>
+      <TextBlock x:Name="StatusBanner" TextWrapping="Wrap" Classes="emphasis"/>
     </Border>
 
     <ScrollViewer Grid.Row="2" Margin="0,8,0,0">

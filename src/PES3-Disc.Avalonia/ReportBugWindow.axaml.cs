@@ -39,7 +39,7 @@ public partial class ReportBugWindow : Window
         try
         {
             await App.Controller.SubmitBugReportAsync(TitleBox.Text!.Trim(), BodyBox.Text!.Trim(), "linux");
-            new AvaloniaUiHost().ShowInfo("Thank you — your report was sent. You will be notified when a developer responds.");
+            UiDialogs.ShowInfo(this, "Thank you — your report was sent. You will be notified when a developer responds.");
             Close(true);
         }
         catch (Exception ex)

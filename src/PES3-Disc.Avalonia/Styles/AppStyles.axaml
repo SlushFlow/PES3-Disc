@@ -1,32 +1,114 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- High-contrast dark theme (WCAG-friendly on cards and buttons) -->
   <Style Selector="Window">
-    <Setter Property="Icon" Value="/Assets/PES3-Disc.png"/>
+    <Setter Property="Background" Value="#0A0E12"/>
+    <Setter Property="Foreground" Value="#F1F5F9"/>
+    <Setter Property="FontSize" Value="14"/>
   </Style>
+
+  <Style Selector="TextBlock">
+    <Setter Property="Foreground" Value="#F1F5F9"/>
+  </Style>
+
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="#B8C8E0"/>
+  </Style>
+
+  <Style Selector="TextBlock.emphasis">
+    <Setter Property="Foreground" Value="#FFFFFF"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+
   <Style Selector="Border.card">
-    <Setter Property="Background" Value="#1A2332"/>
-    <Setter Property="BorderBrush" Value="#2D3A4F"/>
+    <Setter Property="Background" Value="#151C28"/>
+    <Setter Property="BorderBrush" Value="#4A5F7A"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="10"/>
     <Setter Property="Padding" Value="16"/>
     <Setter Property="Margin" Value="0,0,0,12"/>
   </Style>
-  <Style Selector="Button.primary">
-    <Setter Property="Background" Value="#3B82F6"/>
-    <Setter Property="Foreground" Value="White"/>
-    <Setter Property="Padding" Value="16,10"/>
+
+  <Style Selector="Button">
+    <Setter Property="MinHeight" Value="36"/>
+    <Setter Property="MinWidth" Value="72"/>
+    <Setter Property="Padding" Value="14,10"/>
     <Setter Property="CornerRadius" Value="6"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
   </Style>
+
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="#2563EB"/>
+    <Setter Property="Foreground" Value="#FFFFFF"/>
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+  <Style Selector="Button.primary:pointerover">
+    <Setter Property="Background" Value="#1D4ED8"/>
+    <Setter Property="Foreground" Value="#FFFFFF"/>
+  </Style>
+  <Style Selector="Button.primary:pressed">
+    <Setter Property="Background" Value="#1E40AF"/>
+    <Setter Property="Foreground" Value="#FFFFFF"/>
+  </Style>
+  <Style Selector="Button.primary:disabled">
+    <Setter Property="Background" Value="#334155"/>
+    <Setter Property="Foreground" Value="#94A3B8"/>
+    <Setter Property="Opacity" Value="1"/>
+  </Style>
+
   <Style Selector="Button.secondary">
-    <Setter Property="Background" Value="#1A2332"/>
-    <Setter Property="BorderBrush" Value="#2D3A4F"/>
+    <Setter Property="Background" Value="#1E2A3D"/>
+    <Setter Property="BorderBrush" Value="#5B6F8F"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="Foreground" Value="#E8EDF4"/>
-    <Setter Property="Padding" Value="16,10"/>
-    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Foreground" Value="#FFFFFF"/>
   </Style>
-  <Style Selector="TextBlock.muted">
-    <Setter Property="Foreground" Value="#8B9CB3"/>
+  <Style Selector="Button.secondary:pointerover">
+    <Setter Property="Background" Value="#2A3A52"/>
+    <Setter Property="BorderBrush" Value="#7B92B0"/>
+    <Setter Property="Foreground" Value="#FFFFFF"/>
   </Style>
+  <Style Selector="Button.secondary:pressed">
+    <Setter Property="Background" Value="#151C28"/>
+    <Setter Property="Foreground" Value="#FFFFFF"/>
+  </Style>
+  <Style Selector="Button.secondary:disabled">
+    <Setter Property="Background" Value="#151C28"/>
+    <Setter Property="Foreground" Value="#64748B"/>
+    <Setter Property="BorderBrush" Value="#334155"/>
+  </Style>
+
+  <Style Selector="TextBox">
+    <Setter Property="Background" Value="#0A0E12"/>
+    <Setter Property="Foreground" Value="#FFFFFF"/>
+    <Setter Property="BorderBrush" Value="#5B6F8F"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CaretBrush" Value="#FFFFFF"/>
+    <Setter Property="Padding" Value="10,8"/>
+    <Setter Property="MinHeight" Value="32"/>
+  </Style>
+  <Style Selector="TextBox:focus">
+    <Setter Property="BorderBrush" Value="#3B82F6"/>
+  </Style>
+
+  <Style Selector="ComboBox">
+    <Setter Property="Background" Value="#0A0E12"/>
+    <Setter Property="Foreground" Value="#FFFFFF"/>
+    <Setter Property="BorderBrush" Value="#5B6F8F"/>
+    <Setter Property="MinHeight" Value="32"/>
+  </Style>
+
+  <Style Selector="CheckBox">
+    <Setter Property="Foreground" Value="#F1F5F9"/>
+  </Style>
+
+  <Style Selector="ProgressBar">
+    <Setter Property="Foreground" Value="#3B82F6"/>
+    <Setter Property="Background" Value="#1E2A3D"/>
+    <Setter Property="MinHeight" Value="8"/>
+  </Style>
+
 </Styles>

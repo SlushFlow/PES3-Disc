@@ -5,7 +5,7 @@
         Width="520" Height="400"
         WindowStartupLocation="CenterScreen"
         CanResize="False"
-        Background="#0F1419">
+        Background="#0A0E12">
   <StackPanel Margin="24" Spacing="16">
     <TextBlock Text="Welcome to PES3-Disc" FontSize="22" FontWeight="Bold" Foreground="#E8EDF4"/>
     <TextBlock Classes="muted" TextWrapping="Wrap"

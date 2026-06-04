@@ -61,7 +61,6 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // API unreachable — ignore until next poll
         }
         finally
         {
@@ -98,6 +97,7 @@ public partial class MainWindow : Window
         if (_scanInProgress)
             return;
         _scanInProgress = true;
+        ScanButton.IsEnabled = false;
         try
         {
             App.Controller.CleanupEjectedVolumes();
@@ -129,9 +129,15 @@ public partial class MainWindow : Window
                 ? $"Found {cards.Count} PS3 volume(s) ready."
                 : "No optical drives ready. Insert a disc and wait for Windows to mount it.";
         }
+        catch (Exception ex)
+        {
+            StatusBanner.Text = "Scan failed.";
+            _ui.ShowWarning(ex.Message);
+        }
         finally
         {
             _scanInProgress = false;
+            ScanButton.IsEnabled = true;
         }
     }
 
@@ -148,6 +154,7 @@ public partial class MainWindow : Window
             Text = card.Title,
             FontWeight = FontWeights.SemiBold,
             FontSize = 16,
+            Foreground = Brushes.White,
         });
         stack.Children.Add(new TextBlock
         {
@@ -160,73 +167,100 @@ public partial class MainWindow : Window
         grid.Children.Add(stack);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal };
+
         if (card.CanPlay && card.Status.Game is { } game)
         {
-            var play = new Button
-            {
-                Content = card.PlayButtonText,
-                Style = (Style)FindResource("PrimaryButton"),
-                Margin = new Thickness(0, 0, 8, 0),
-            };
-            play.Click += async (_, _) =>
-            {
-                StatusBanner.Text = $"Playing: {game.Title}";
-                await App.Controller.PlayGameAsync(card.Drive, game, _ui);
-            };
-            actions.Children.Add(play);
+            actions.Children.Add(CreateActionButton(
+                card.PlayButtonText,
+                primary: true,
+                async () =>
+                {
+                    StatusBanner.Text = $"Playing: {game.Title}";
+                    await App.Controller.PlayGameAsync(card.Drive, game, _ui);
+                }));
         }
-        else if (card.CanDecrypt)
+        else
         {
-            if (card.CanPlayFromCache && card.LibraryEntry is not null)
+            if (card.CanPlayFromCache && card.LibraryEntry is { } library)
             {
-                var playCache = new Button
-                {
-                    Content = "Play from library",
-                    Style = (Style)FindResource("PrimaryButton"),
-                    Margin = new Thickness(0, 0, 8, 0),
-                };
-                playCache.Click += async (_, _) =>
-                {
-                    StatusBanner.Text = $"Playing from library: {card.LibraryEntry.Game.Title}";
-                    await App.Controller.PlayFromCacheAsync(card.LibraryEntry, _ui);
-                };
-                actions.Children.Add(playCache);
+                actions.Children.Add(CreateActionButton(
+                    "Play from library",
+                    primary: true,
+                    async () =>
+                    {
+                        StatusBanner.Text = $"Playing from library: {library.Game.Title}";
+                        await App.Controller.PlayFromCacheAsync(library, _ui);
+                    }));
             }
 
-            var dec = new Button
+            if (card.CanDecrypt)
             {
-                Content = card.CanDecryptAgain ? "Decrypt again" : "Decrypt & play",
-                Style = (Style)FindResource("SecondaryButton"),
-                IsEnabled = card.DecryptAvailable,
-            };
-            if (!card.DecryptAvailable)
-                dec.ToolTip = "Build pes3-disc-dump.exe (re-run Build-App.ps1 with .NET 10 SDK).";
-            dec.Click += async (_, _) =>
-            {
-                StatusBanner.Text = "Decrypting…";
-                var msg = await App.Controller.DecryptAndPlayAsync(card.Drive, _ui);
-                if (msg is not null)
-                    StatusBanner.Text = "Playing from library.";
-            };
-            actions.Children.Add(dec);
+                var dec = CreateActionButton(
+                    card.CanDecryptAgain ? "Decrypt again" : "Decrypt & play",
+                    primary: false,
+                    async () =>
+                    {
+                        StatusBanner.Text = "Decrypting…";
+                        var msg = await App.Controller.DecryptAndPlayAsync(card.Drive, _ui);
+                        if (msg is not null)
+                        {
+                            StatusBanner.Text = "Playing from library.";
+                            App.Controller.InvalidateScanCache();
+                            await RunScanAsync();
+                        }
+                    });
+                dec.IsEnabled = card.DecryptAvailable;
+                if (!card.DecryptAvailable)
+                    dec.ToolTip = "Build pes3-disc-dump.exe (re-run Build-App.ps1 with .NET 10 SDK) or set DumpCliPath.";
+                actions.Children.Add(dec);
+            }
         }
 
-        var dismiss = new Button
-        {
-            Content = "Dismiss",
-            Style = (Style)FindResource("SecondaryButton"),
-            Margin = new Thickness(8, 0, 0, 0),
-        };
-        dismiss.Click += (_, _) =>
-        {
-            App.Controller.Dismiss(card.Drive);
-            border.Visibility = Visibility.Collapsed;
-        };
-        actions.Children.Add(dismiss);
+        actions.Children.Add(CreateActionButton(
+            "Dismiss",
+            primary: false,
+            () =>
+            {
+                App.Controller.Dismiss(card.Drive);
+                border.Visibility = Visibility.Collapsed;
+                return Task.CompletedTask;
+            }));
 
         Grid.SetColumn(actions, 1);
         grid.Children.Add(actions);
         border.Child = grid;
         DiscListPanel.Children.Add(border);
+    }
+
+    private Button CreateActionButton(string label, bool primary, Func<Task> action)
+    {
+        var styleKey = primary ? "PrimaryButton" : "SecondaryButton";
+        var btn = new Button
+        {
+            Content = label,
+            Style = (Style)FindResource(styleKey),
+            Margin = new Thickness(0, 0, 8, 0),
+        };
+        btn.Click += async (_, _) => await RunButtonActionAsync(btn, action);
+        return btn;
+    }
+
+    private async Task RunButtonActionAsync(Button button, Func<Task> action)
+    {
+        button.IsEnabled = false;
+        try
+        {
+            await action().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            StatusBanner.Text = "Action failed.";
+            _ui.ShowWarning(ex.Message);
+            Pes3Log.Write($"UI action failed: {ex}");
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
     }
 }
